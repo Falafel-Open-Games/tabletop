@@ -1,6 +1,8 @@
-[gd_scene load_steps=5 format=3 uid="uid://bi3jbb5jujnjb"]
+[gd_scene load_steps=7 format=3 uid="uid://bi3jbb5jujnjb"]
 
 [ext_resource type="Script" uid="uid://dkvgyshwfuxsr" path="res://src/table.gd" id="1_02ppr"]
+[ext_resource type="Material" uid="uid://diskfdpf7dkfx" path="res://materials/seat.tres" id="2_x8522"]
+[ext_resource type="Material" uid="uid://gla38yj1243i" path="res://materials/selected_seat.tres" id="3_olh0b"]
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_02ppr"]
 top_radius = 1.0
@@ -17,6 +19,8 @@ size = Vector3(0.6, 0.8, 0.04)
 script = ExtResource("1_02ppr")
 seats_container = NodePath("Seats")
 seat_model = NodePath("Seats/Seat 0")
+seat_material = ExtResource("2_x8522")
+selected_seat_material = ExtResource("3_olh0b")
 
 [node name="Top Mesh" type="MeshInstance3D" parent="."]
 transform = Transform3D(0.7065769, 0.005440733, -0.70761544, -0.0043212124, 0.9999846, 0.0033738408, 0.7076229, 0.00067388336, 0.7065897, 0, 0, 0)
