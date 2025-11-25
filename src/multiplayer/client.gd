@@ -20,9 +20,6 @@ func _send_msg():
 
     MultiplayerManager.send_chat_message(line_message.text.strip_edges())
     line_message.clear()
-    # if chat_messages.text != "":
-    #     chat_messages.text = chat_messages.text + "\n"
-    # chat_messages.text = chat_messages.text + message
 
 func _on_message_received(text_content):
     chat_messages.text += text_content
