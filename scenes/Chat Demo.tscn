@@ -1,12 +1,18 @@
-[gd_scene format=3 uid="uid://c1sdndh08rtpl"]
+[gd_scene load_steps=2 format=3 uid="uid://c1sdndh08rtpl"]
 
-[node name="ChatDemo" type="Control"]
+[ext_resource type="Script" uid="uid://c0uv4mi0jjjr4" path="res://src/multiplayer/client.gd" id="1_5vbs1"]
+
+[node name="ChatDemo" type="Control" node_paths=PackedStringArray("button_send", "chat_messages", "line_message")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+script = ExtResource("1_5vbs1")
+button_send = NodePath("MarginContainer/VBoxContainer/HBoxContainer/Button")
+chat_messages = NodePath("MarginContainer/VBoxContainer/Chat Messages")
+line_message = NodePath("MarginContainer/VBoxContainer/HBoxContainer/LineEdit")
 
 [node name="MarginContainer" type="MarginContainer" parent="."]
 layout_mode = 1
