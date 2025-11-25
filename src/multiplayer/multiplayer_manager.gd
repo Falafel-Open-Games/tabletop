@@ -1,54 +1,48 @@
 extends Node
 
-# Signal to tell the UI (or any other node) that a message arrived
 signal message_received(text_content)
 
-const PORT = 7000
-const DEFAULT_SERVER_IP = "127.0.0.1"
+const PORT = 8910
 const message_template = "\n%s [b]<%s>[/b]  %s"
+const DEFAULT_SERVER_IP = "127.0.0.1" # For Web, use "localhost" or your public IP
 
-var peer = ENetMultiplayerPeer.new()
+var peer = WebSocketMultiplayerPeer.new()
 
 func host_game():
-	var error = peer.create_server(PORT)
-	if error != OK:
-		return error
+    var error = peer.create_server(PORT)
+    if error != OK:
+        return error
 
-	peer.host.compress(ENetConnection.COMPRESS_RANGE_CODER)
-	multiplayer.multiplayer_peer = peer
+    multiplayer.multiplayer_peer = peer
 
-	# Optional: Let the host know the server started locally
-	var message = "Server started. Waiting for connections..."
-	message_received.emit(message)
-	print(message)
-	return OK
+    var message = "Server started (WebSockets). Waiting..."
+    print(message)
+    message_received.emit(message)
+    return OK
 
 func join_game():
-	peer.create_client(DEFAULT_SERVER_IP, PORT)
+    # WebSockets require a URL scheme (ws:// for local/http, wss:// for secure/https)
+    # If running locally, use "ws://127.0.0.1:7000"
+    var url = "ws://" + DEFAULT_SERVER_IP + ":" + str(PORT)
 
-	peer.host.compress(ENetConnection.COMPRESS_RANGE_CODER)
-	multiplayer.multiplayer_peer = peer
+    var error = peer.create_client(url)
+    if error != OK:
+        return error
 
-	message_received.emit("Connecting to server...")
+    multiplayer.multiplayer_peer = peer
+    message_received.emit("Connecting to " + url + "...")
 
 # --- RPC FUNCTIONS ---
 
-# Call this function from your UI to send a chat
 func send_chat_message(msg: String):
-	# RPC to Server (ID 1)
-	request_send_message.rpc_id(1, msg)
+    request_send_message.rpc_id(1, msg)
 
-# 1. CLIENT -> SERVER
 @rpc("any_peer", "call_remote")
 func request_send_message(message: String):
-	var sender_id = multiplayer.get_remote_sender_id()
-	var final_msg = message_template % [Utils.get_current_time(), sender_id, message]
+    var sender_id = multiplayer.get_remote_sender_id()
+    var final_msg = message_template % [Utils.get_current_time(), sender_id, message]
+    broadcast_message.rpc(final_msg)
 
-	# 2. SERVER -> ALL
-	broadcast_message.rpc(final_msg)
-
-# 3. SERVER -> ALL (Broadcast)
 @rpc("authority", "call_local")
 func broadcast_message(message: String):
-	# Emit signal so the UI knows to update
-	message_received.emit(message)
+    message_received.emit(message)
