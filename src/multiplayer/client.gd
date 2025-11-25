@@ -4,17 +4,25 @@ extends Node
 @export var chat_messages : RichTextLabel
 @export var line_message : LineEdit
 
-var player_id = "Player A"
-const message_template = "%s [b]<%s>[/b]  %s"
-
 func _ready() -> void:
     chat_messages.clear()
     chat_messages.text = ""
-    button_send.pressed.connect(_on_button_send)
+    button_send.pressed.connect(_on_submit)
 
-func _on_button_send():
-    var message = message_template % [Utils.get_current_time(), player_id, line_message.text]
+    MultiplayerManager.message_received.connect(_on_message_received)
+
+func _on_submit():
+    _send_msg()
+
+func _send_msg():
+    if line_message.text == "":
+        return
+
+    MultiplayerManager.send_chat_message(line_message.text.strip_edges())
     line_message.clear()
-    if chat_messages.text != "":
-        chat_messages.text = chat_messages.text + "\n"
-    chat_messages.text = chat_messages.text + message
+    # if chat_messages.text != "":
+    #     chat_messages.text = chat_messages.text + "\n"
+    # chat_messages.text = chat_messages.text + message
+
+func _on_message_received(text_content):
+    chat_messages.text += text_content
