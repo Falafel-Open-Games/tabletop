@@ -1,0 +1,165 @@
+name: Build exports & publish
+
+on:
+  push:
+    branches: [ main, build-and-publish ]
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: 4.5.1
+  GODOT_RELEASE_NAME: stable
+
+jobs:
+  build-exports:
+    name: Export all builds
+    runs-on: ubuntu-24.04
+    container:
+      image: fczuardi/godot-ci:4.5.1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup export templates
+        run: |
+          mkdir -p ~/.local/share/godot/export_templates/
+          mv /root/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_RELEASE_NAME} \
+             ~/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_RELEASE_NAME}
+
+      - name: Export Linux Headless Server
+        run: |
+          mkdir -p build/server
+          godot --headless --verbose \
+            --export-release "Linux Headless Server" \
+            build/server/tabletop_server.x86_64
+
+      - name: Export Linux Client
+        run: |
+          mkdir -p build/linux-client
+          godot --headless --verbose \
+            --export-release "Linux Client" \
+            build/linux-client/tabletop.x86_64
+
+      - name: Export Web (HTML)
+        run: |
+          mkdir -p build/html-client
+          godot --headless --verbose \
+            --export-release "Web" \
+            build/html-client/index.html
+
+      # Separate artifacts so downstream jobs can download only what they need
+      - name: Upload server artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-build
+          path: build/server
+
+      - name: Upload linux client artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-client-build
+          path: build/linux-client
+
+      - name: Upload web html artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-html-build
+          path: build/html-client
+
+  dockerhub-publish:
+    name: Build & push Docker image
+    needs: build-exports
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Download server build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: server-build
+          path: build/server
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Containerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/tabletop-server:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/tabletop-server:${{ github.sha }}
+
+  itch-publish:
+    name: Publish Web build to itch.io
+    needs: build-exports
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download web html artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-html-build
+          path: build/html-client
+
+      - name: Setup butler
+        uses: remarkablegames/setup-butler@v2
+
+      - name: Upload to itch.io
+        run: |
+          butler push "build/html-client" \
+            ${{ vars.ITCHIO_USERNAME }}/${{ vars.ITCHIO_GAME }}:html5
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+
+  github-release-latest:
+    name: Update GitHub 'latest' release
+    needs: build-exports
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download server artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: server-build
+          path: build/server
+
+      - name: Download linux client artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-client-build
+          path: build/linux-client
+
+      - name: Download web html artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-html-build
+          path: build/html-client
+
+      - name: Create archives
+        run: |
+          mkdir -p dist
+          tar czf dist/tabletop-linux-headless-server.tar.gz -C build/server .
+          tar czf dist/tabletop-linux-client.tar.gz        -C build/linux-client .
+          tar czf dist/tabletop-web-html.tar.gz            -C build/html-client .
+
+      - name: Create / update 'latest' release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest build
+          draft: false
+          prerelease: true
+          files: dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
