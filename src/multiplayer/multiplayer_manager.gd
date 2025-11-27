@@ -10,6 +10,7 @@ var peer = WebSocketMultiplayerPeer.new()
 
 # MAPPING: Key = Player ID (int), Value = Room Name (String)
 var player_rooms = {}
+var room_id : String
 
 func host_game():
     var error = peer.create_server(PORT)
@@ -39,10 +40,12 @@ func join_game():
 
 # --- ROOM LOGIC ---
 func join_specific_room(room_name: String):
+    print("join_specific_room ", room_name)
     request_join_room.rpc_id(1, room_name)
 
 @rpc("any_peer", "call_remote")
 func request_join_room(room_name: String):
+    print("request_join_room ", room_name)
     var sender_id = multiplayer.get_remote_sender_id()
 
     # Store the player in the dictionary
@@ -58,6 +61,7 @@ func request_join_room(room_name: String):
 # --- CHAT LOGIC ---
 
 func send_chat_message(msg: String):
+    print(msg)
     request_send_message.rpc_id(1, msg)
 
 @rpc("any_peer", "call_remote")

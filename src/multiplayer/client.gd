@@ -8,7 +8,7 @@ func _ready() -> void:
     chat_messages.clear()
     chat_messages.text = ""
     button_send.pressed.connect(_on_submit)
-
+    multiplayer.connected_to_server.connect(_on_connected_to_server)
     MultiplayerManager.message_received.connect(_on_message_received)
 
 func _on_submit():
@@ -23,3 +23,6 @@ func _send_msg():
 
 func _on_message_received(text_content):
     chat_messages.text += text_content
+
+func _on_connected_to_server():
+    MultiplayerManager.join_specific_room(MultiplayerManager.room_id)
