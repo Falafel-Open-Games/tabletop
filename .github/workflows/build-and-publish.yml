@@ -2,7 +2,7 @@ name: Build exports & publish
 
 on:
   push:
-    branches: [ main, build-and-publish ]
+    branches: [ main, html-wrapper ]
   workflow_dispatch:
 
 env:
@@ -42,10 +42,10 @@ jobs:
 
       - name: Export Web (HTML)
         run: |
-          mkdir -p build/html-client
+          mkdir -p build/html-client/game
           godot --headless --verbose \
             --export-release "Web" \
-            build/html-client/index.html
+            build/html-client/game/index.html
 
       # Separate artifacts so downstream jobs can download only what they need
       - name: Upload server artifact

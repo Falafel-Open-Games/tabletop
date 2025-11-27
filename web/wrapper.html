@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Tabletop – Demo Wrapper</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        font-family: system-ui, sans-serif;
+        background: #050608;
+        color: #eee;
+      }
+      body {
+        display: flex;
+        flex-direction: column;
+      }
+      header, footer {
+        padding: 0.5rem 1rem;
+        background: #11141a;
+        font-size: 0.9rem;
+      }
+      main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+      #game-frame {
+        border: none;
+        width: 100%;
+        flex: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong>Tabletop demo</strong> – wrapper simulating sponsor page<br />
+      <label>
+        Room ID
+        <input id="room-id-input" type="text" placeholder="auto" />
+      </label>
+      <label>
+        Server URL
+        <input id="server-url-input" type="text" placeholder="ws://127.0.0.1:8910" />
+      </label>
+      <button id="apply-btn" type="button">Apply</button>
+      <div>
+        <strong>Current</strong> <span id="room-id-display"></span>,
+        <span id="server-url-display"></span>
+      </div>
+    </header>
+    <main>
+      <iframe
+        id="game-frame"
+        src="./game/index.html"
+        allow="fullscreen"
+      ></iframe>
+    </main>
+    <footer>
+      This page represents the sponsor website embedding the game.
+    </footer>
+    <script>
+      // Host-side API
+      function onMsg(e) {
+        if (!e.data || e.data.source !== "tabletop") return;
+        console.log("Message from tabletop:", e.data.type, e.data.payload);
+        // here you can simulate logged user / session / coupon, etc.
+      }
+
+      window.addEventListener("message", onMsg);
+
+      function generateRoomId() {
+        if (crypto.randomUUID) return crypto.randomUUID();
+        // Fallback if UUID isn’t available (older browsers)
+        const buf = new Uint8Array(16);
+        crypto.getRandomValues(buf);
+        return [...buf].map(b => b.toString(16).padStart(2, "0")).join("");
+      }
+
+      function parseParam(name, fallback = null) {
+        const url = new URL(window.location.href);
+        return url.searchParams.get(name) || fallback;
+      }
+
+      function updateIframe(roomId, serverUrl, updateUrlBar = false) {
+        const params = new URLSearchParams();
+        if (roomId) params.set("roomid", roomId);
+        if (serverUrl) params.set("url", serverUrl);
+        document.getElementById("game-frame").src = "./game/index.html?" + params.toString();
+        document.getElementById("room-id-display").textContent = roomId;
+        document.getElementById("server-url-display").textContent = serverUrl;
+        if (updateUrlBar) {
+          const current = new URL(window.location.href);
+          params.forEach((v, k) => current.searchParams.set(k, v));
+          history.replaceState(null, "", current.toString());
+        }
+      }
+
+      window.addEventListener("DOMContentLoaded", () => {
+          const roomInput = document.getElementById("room-id-input");
+          const serverInput = document.getElementById("server-url-input");
+
+          let roomId = parseParam("roomid");
+          let serverUrl = parseParam("url", "ws://127.0.0.1:8910");
+
+          if (!roomId) {
+            roomId = generateRoomId();
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set("roomid", roomId);
+            history.replaceState(null, "", currentUrl.toString());
+          }
+
+          roomInput.value = roomId;
+          serverInput.value = serverUrl;
+          updateIframe(roomId, serverUrl, false);
+
+          document.getElementById("apply-btn").addEventListener("click", () => {
+            const newRoom = roomInput.value.trim() || generateRoomId();
+            const newUrl = serverInput.value.trim() || "ws://127.0.0.1:8910";
+            updateIframe(newRoom, newUrl, true);
+          });
+      })
+    </script>
+  </body>
+</html>
