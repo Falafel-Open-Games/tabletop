@@ -29,6 +29,10 @@ window/size/window_height_override=540
 window/stretch/mode="viewport"
 window/stretch/aspect="keep_width"
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/post_export_copy/plugin.cfg")
+
 [rendering]
 
 renderer/rendering_method="gl_compatibility"
