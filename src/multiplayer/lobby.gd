@@ -4,25 +4,33 @@ extends Node
 
 func _ready() -> void:
     var args = Array(OS.get_cmdline_args())
-    # Spin up a server instance
-    # TODO: listen to arguments to have multiple servers on the same machine
     if args.has("--server"):
+        # Spin up a server instance
         testing_label.text += "\nHosting game"
+        _configure_server()
         MultiplayerManager.host_game()
     elif args.has("--roomid"):
+        # Join as a client
         var room_id = Utils.get_cmdline_arg_value("--roomid")
         testing_label.text += "\n" + room_id
         MultiplayerManager.room_id = room_id
-        if args.has("--url"):
-            testing_label.text += "\n" + Utils.get_websocket_server()
-            print(Utils.get_websocket_server())
-            print(room_id)
-            pass
-        else:
-            pass
-            # MultiplayerManager.join_specific_room(room_id)
-            call_deferred("_start_client")
+        _configure_server()
+        call_deferred("_start_client")
+    else:
+        OS.alert("Missing --roomid")
 
 func _start_client():
     MultiplayerManager.join_game()
     get_tree().change_scene_to_file("res://scenes/client.tscn")
+
+func _configure_server():
+    var args = Array(OS.get_cmdline_args())
+    if not args.has("--url"):
+        return
+
+    var server_url = Utils.get_websocket_server()
+    var server_ip_port_dict = Utils.get_ip_and_port(server_url)
+    MultiplayerManager.server_ip = server_ip_port_dict["ip"]
+    MultiplayerManager.port = server_ip_port_dict["port"]
+
+    testing_label.text += "\n" + Utils.get_websocket_server()

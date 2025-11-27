@@ -35,3 +35,20 @@ func get_websocket_server() -> String:
         return "ws://" + raw_url
 
     return raw_url
+
+func get_ip_and_port(full_url: String) -> Dictionary:
+    var clean_url = full_url.trim_prefix("wss://").trim_prefix("ws://")
+    var parts = clean_url.split(":")
+
+    var result = {
+        "ip": "",
+        "port": 0 # Default integer for port
+    }
+
+    if parts.size() >= 1:
+        result.ip = parts[0]
+
+    if parts.size() >= 2:
+        result.port = parts[1].to_int() # Convert string "8910" to int 8910
+
+    return result
