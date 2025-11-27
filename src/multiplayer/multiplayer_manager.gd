@@ -2,7 +2,7 @@ extends Node
 
 signal message_received(text_content)
 
-const DEFAULT_SERVER_IP = "127.0.0.1" # For Web, use "localhost" or your public IP
+const DEFAULT_SERVER_URL = "ws://127.0.0.1:8910" # For Web, use wss:// on HTTPS hosts
 const DEFAULT_PORT = 8910
 const MESSAGE_TEMPLATE = "\n%s [b]<%s>[/b]  %s"
 
@@ -10,14 +10,14 @@ var peer = WebSocketMultiplayerPeer.new()
 
 # MAPPING: Key = Player ID (int), Value = Room Name (String)
 var player_rooms = {}
-var server_ip : String = DEFAULT_SERVER_IP
-var port : int = DEFAULT_PORT
+var server_url : String = DEFAULT_SERVER_URL
 var room_id : String
 
-func _get_server_url():
-    return "ws://" + server_ip + ":" + str(port)
-
 func host_game():
+    var parsed := Utils.get_ip_and_port(server_url)
+    var port := DEFAULT_PORT
+    if parsed.has("port") and parsed["port"] > 0:
+        port = parsed["port"]
     var error = peer.create_server(port)
     if error != OK:
         return error
@@ -32,14 +32,14 @@ func host_game():
 
 func join_game():
     # WebSockets require a URL scheme (ws:// for local/http, wss:// for secure/https)
-    # If running locally, use "ws://127.0.0.1:8910"
+    # If running locally, use "ws://127.0.0.1:8910" (or wss:// if your host requires it)
 
-    var error = peer.create_client(_get_server_url())
+    var error = peer.create_client(server_url)
     if error != OK:
         return error
 
     multiplayer.multiplayer_peer = peer
-    message_received.emit("Connecting to " + _get_server_url() + "...")
+    message_received.emit("Connecting to " + server_url + "...")
 
 # --- ROOM LOGIC ---
 

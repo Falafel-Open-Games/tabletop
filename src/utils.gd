@@ -8,28 +8,6 @@ func get_current_time(show_seconds := false) -> String:
     else:
         return "%02d:%02d" % [time.hour, time.minute]
 
-func get_cmdline_arg_value(target_key: String) -> String:
-    var args = OS.get_cmdline_args()
-    for i in range(args.size()):
-        var arg = args[i]
-
-        # Format: --key=value
-        if arg.begins_with(target_key + "="):
-            return arg.split("=")[1]
-
-    return ""
-
-func get_websocket_server() -> String:
-    var raw_url = get_cmdline_arg_value("--url")
-
-    if raw_url.is_empty():
-        return ""
-
-    if not raw_url.begins_with("ws://") and not raw_url.begins_with("wss://"):
-        return "ws://" + raw_url
-
-    return raw_url
-
 func get_ip_and_port(full_url: String) -> Dictionary:
     var clean_url = full_url.trim_prefix("wss://").trim_prefix("ws://")
     var parts = clean_url.split(":")

@@ -75,3 +75,41 @@ To open a new client window on the same machine as the server, run:
 ./build/linux-client/tabletop.x86_64
 ```
 
+### How to test over the internet using Cloudflare (cloudflared cli tool) tunnels
+
+If you have a domain name managed by Cloudflare it is possible to use the `cloudflared` command line tool to expose your localhost server to the Internet, below are the steps:
+
+In this example I am using `ws-example` as the tunnel name, `tabletop-server.example.com` as the service hostname and `8910` as the local port, adjust to your values.
+
+```
+brew install cloudflared
+
+cloudflared tunnel login
+
+cloudflared tunnel create ws-example
+# ... Created tunnel tabletop-server with id XXX-YYY-ZZZ
+
+cloudflared tunnel list
+
+nvim ~/.cloudflared/config.yaml
+# create this config following the provided example below
+
+# REPLACE WITH YOUR VALUES
+cloudflared tunnel route dns XXX-YYY-ZZZ tabletop-server.example.com 
+
+cloudflared tunnel run ws-example
+```
+
+Example of config.yaml file:
+
+```
+tunnel: XXX-YYY-ZZZ
+credentials-file: ~/.cloudflared/XXX-YYY-ZZZ.json
+
+ingress:
+  - hostname: tabletop-server.example.com
+    service: http://localhost:8910
+  - service: http_status:404
+```
+
+Then on your clients use `wss://tabletop-server.example.com` as the `--url` argument.
