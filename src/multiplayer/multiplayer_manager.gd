@@ -23,8 +23,6 @@ func host_game():
         return error
 
     multiplayer.multiplayer_peer = peer
-
-    # Listen for disconnects so we can remove players from the room list
     multiplayer.peer_disconnected.connect(_on_peer_disconnected)
 
     var message = "Server started. Waiting for connections..."
@@ -44,6 +42,7 @@ func join_game():
     message_received.emit("Connecting to " + _get_server_url() + "...")
 
 # --- ROOM LOGIC ---
+
 func join_specific_room(room_name: String):
     print("join_specific_room ", room_name)
     request_join_room.rpc_id(1, room_name)
@@ -53,13 +52,8 @@ func request_join_room(room_name: String):
     print("request_join_room ", room_name)
     var sender_id = multiplayer.get_remote_sender_id()
 
-    # Store the player in the dictionary
     player_rooms[sender_id] = room_name
-
-    # Notify the player they joined successfully
-    var msg = "Joined Room: " + room_name
-    # We use rpc_id to send ONLY to that specific player
-    broadcast_message.rpc_id(sender_id, msg)
+    broadcast_message.rpc_id(sender_id, "Joined Room: %s" % room_name)
 
     print("Player %s joined room %s" % [sender_id, room_name])
 
@@ -73,7 +67,6 @@ func send_chat_message(msg: String):
 func request_send_message(message: String):
     var sender_id = multiplayer.get_remote_sender_id()
 
-    # Check if sender is actually in a room
     if not player_rooms.has(sender_id):
         return
 
@@ -88,7 +81,6 @@ func request_send_message(message: String):
 func broadcast_message(message: String):
     message_received.emit(message)
 
-# CLEANUP: If a player quits, remove them from the list
 func _on_peer_disconnected(id):
     if player_rooms.has(id):
         player_rooms.erase(id)
