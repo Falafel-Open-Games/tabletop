@@ -13,11 +13,7 @@ func get_cmdline_arg_value(target_key: String) -> String:
     for i in range(args.size()):
         var arg = args[i]
 
-        # Format 1: --key value
-        if arg == target_key and i + 1 < args.size():
-            return args[i + 1]
-
-        # Format 2: --key=value
+        # Format: --key=value
         if arg.begins_with(target_key + "="):
             return arg.split("=")[1]
 

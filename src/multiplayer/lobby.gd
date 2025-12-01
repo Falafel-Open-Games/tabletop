@@ -9,15 +9,17 @@ func _ready() -> void:
         testing_label.text += "\nHosting game"
         _configure_server()
         MultiplayerManager.host_game()
-    elif args.has("--roomid"):
+    else:
         # Join as a client
         var room_id = Utils.get_cmdline_arg_value("--roomid")
-        testing_label.text += "\n" + room_id
-        MultiplayerManager.room_id = room_id
-        _configure_server()
-        call_deferred("_start_client")
-    else:
-        _throw_error_missing_room_id()
+
+        if room_id == "":
+            _throw_error_missing_room_id()
+        else:
+            testing_label.text += "\n" + room_id
+            MultiplayerManager.room_id = room_id
+            _configure_server()
+            call_deferred("_start_client")
 
 func _start_client():
     MultiplayerManager.join_game()
