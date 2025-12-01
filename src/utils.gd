@@ -24,13 +24,11 @@ func get_cmdline_arg_value(target_key: String) -> String:
     return ""
 
 func get_websocket_server() -> String:
-    # 1. Get the raw string from command line (using the logic from before)
     var raw_url = get_cmdline_arg_value("--url")
 
     if raw_url.is_empty():
-        return "" # Or handle error / return default like "ws://127.0.0.1:8910"
+        return ""
 
-    # 2. Check for protocol and add if missing
     if not raw_url.begins_with("ws://") and not raw_url.begins_with("wss://"):
         return "ws://" + raw_url
 
@@ -49,6 +47,6 @@ func get_ip_and_port(full_url: String) -> Dictionary:
         result.ip = parts[0]
 
     if parts.size() >= 2:
-        result.port = parts[1].to_int() # Convert string "8910" to int 8910
+        result.port = parts[1].to_int()
 
     return result
