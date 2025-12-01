@@ -11,6 +11,10 @@ func _ready() -> void:
     multiplayer.connected_to_server.connect(_on_connected_to_server)
     MultiplayerManager.message_received.connect(_on_message_received)
 
+func _input(event: InputEvent) -> void:
+    if Input.is_action_pressed("ui_accept") and chat_messages.text != "":
+        _send_msg()
+
 func _on_submit():
     _send_msg()
 
