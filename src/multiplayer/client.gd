@@ -12,7 +12,7 @@ func _ready() -> void:
     MultiplayerManager.message_received.connect(_on_message_received)
 
 func _input(event: InputEvent) -> void:
-    if Input.is_action_pressed("ui_accept") and chat_messages.text != "":
+    if Input.is_action_pressed("ui_text_submit") and chat_messages.text != "":
         _send_msg()
 
 func _on_submit():
