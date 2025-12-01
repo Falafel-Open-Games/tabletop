@@ -26,11 +26,12 @@ func _start_client():
     get_tree().change_scene_to_file("res://scenes/client.tscn")
 
 func _configure_server():
-    var args = Array(OS.get_cmdline_args())
-    if not args.has("--url"):
+    var server_url = Utils.get_websocket_server()
+
+    if server_url == "":
+        # Use default server config
         return
 
-    var server_url = Utils.get_websocket_server()
     var server_ip_port_dict = Utils.get_ip_and_port(server_url)
     MultiplayerManager.server_ip = server_ip_port_dict["ip"]
     MultiplayerManager.port = server_ip_port_dict["port"]
