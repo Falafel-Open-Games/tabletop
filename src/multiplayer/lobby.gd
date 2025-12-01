@@ -17,7 +17,7 @@ func _ready() -> void:
         _configure_server()
         call_deferred("_start_client")
     else:
-        OS.alert("Missing --roomid")
+        _throw_error_missing_room_id()
 
 func _start_client():
     MultiplayerManager.join_game()
@@ -34,3 +34,8 @@ func _configure_server():
     MultiplayerManager.port = server_ip_port_dict["port"]
 
     testing_label.text += "\n" + Utils.get_websocket_server()
+
+func _throw_error_missing_room_id():
+    printerr("Error: missing required argument --roomid")
+    printerr("Usage: godot scenes/lobby.tscn --roomid <room_id>")
+    get_tree().quit(1)  # non‑zero = error
