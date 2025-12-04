@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://c1sdndh08rtpl"]
 
-[ext_resource type="Script" uid="uid://c0uv4mi0jjjr4" path="res://src/multiplayer/client.gd" id="1_5f806"]
+[ext_resource type="Script" uid="uid://c0uv4mi0jjjr4" path="res://src/multiplayer/chat.gd" id="1_5f806"]
 
 [node name="Client" type="Control" node_paths=PackedStringArray("button_send", "chat_messages", "line_message")]
 layout_mode = 3
@@ -10,9 +10,9 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_5f806")
-button_send = NodePath("MarginContainer/VBoxContainer/HBoxContainer/Button")
-chat_messages = NodePath("MarginContainer/VBoxContainer/Chat Messages")
-line_message = NodePath("MarginContainer/VBoxContainer/HBoxContainer/LineEdit")
+button_send = NodePath("MarginContainer/HBoxContainer/VBoxContainer/HBoxContainer/Button")
+chat_messages = NodePath("MarginContainer/HBoxContainer/VBoxContainer/Chat Messages")
+line_message = NodePath("MarginContainer/HBoxContainer/VBoxContainer/HBoxContainer/LineEdit")
 
 [node name="MarginContainer" type="MarginContainer" parent="."]
 layout_mode = 1
@@ -26,28 +26,38 @@ theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 20
 
-[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer"]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="MarginContainer/VBoxContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/VBoxContainer"]
 layout_mode = 2
 text = "Messages:"
 
-[node name="Chat Messages" type="RichTextLabel" parent="MarginContainer/VBoxContainer"]
+[node name="Chat Messages" type="RichTextLabel" parent="MarginContainer/HBoxContainer/VBoxContainer"]
 layout_mode = 2
 size_flags_vertical = 3
 bbcode_enabled = true
 text = "12:27 [b]<player A> [/b] hello
 12:28 [b]<player B> [/b] hi!"
 
-[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/HBoxContainer/VBoxContainer"]
 layout_mode = 2
 
-[node name="LineEdit" type="LineEdit" parent="MarginContainer/VBoxContainer/HBoxContainer"]
+[node name="LineEdit" type="LineEdit" parent="MarginContainer/HBoxContainer/VBoxContainer/HBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 keep_editing_on_text_submit = true
 
-[node name="Button" type="Button" parent="MarginContainer/VBoxContainer/HBoxContainer"]
+[node name="Button" type="Button" parent="MarginContainer/HBoxContainer/VBoxContainer/HBoxContainer"]
 layout_mode = 2
 text = "Send"
+
+[node name="ConnectedPlayers" type="Label" parent="MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(100, 0)
+layout_mode = 2
+size_flags_vertical = 1
+text = "Connected:"
