@@ -75,7 +75,9 @@ To open a new client window on the same machine as the server, run:
 ./build/linux-client/tabletop.x86_64
 ```
 
-### How to test over the internet using Cloudflare (cloudflared cli tool) tunnels
+### How to test over the internet
+
+#### using Cloudflare (cloudflared cli tool) tunnels
 
 If you have a domain name managed by Cloudflare it is possible to use the `cloudflared` command line tool to expose your localhost server to the Internet, below are the steps:
 
@@ -112,4 +114,33 @@ ingress:
   - service: http_status:404
 ```
 
-Then on your clients use `wss://tabletop-server.example.com` as the `--url` argument.
+Then use `wss://tabletop-server.example.com` as the `--url` argument on the clients.
+
+#### using Fly.io to deploy the docker image described in Containerfile
+
+Make a copy of the `fly.example.toml` with the name `fly.toml`
+
+```
+cp fly.example.toml fly.toml
+# edit it to fill up your app's detail
+nvim fly.toml
+```
+
+Build the server binary (like described in the earlier sections):
+
+```
+alias godot=~/dev/Godot_v4.5.1-stable_linux.x86_64 # replace with your godot path
+godot --headless --export-release "Linux Headless Server" build/server/tabletop_server.x86_64
+```
+
+Install flyctl, login, create app, deploy.
+
+```
+brew install flyctl
+fly auth login
+fly launch
+fly deploy
+```
+
+Then use `wss://YOUR-APP-NAME.fly.dev` as the `--url` argument on the clients.
+
