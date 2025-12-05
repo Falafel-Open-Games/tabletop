@@ -1,8 +1,8 @@
 [gd_scene load_steps=2 format=3 uid="uid://bprffqj06ou7r"]
 
-[ext_resource type="Script" uid="uid://dxk0g6wrajdlb" path="res://src/multiplayer/lobby.gd" id="1_o1atq"]
+[ext_resource type="Script" uid="uid://svettry7k5v0" path="res://src/ui/lobby_ui.gd" id="1_o1atq"]
 
-[node name="Main" type="Control" node_paths=PackedStringArray("testing_label")]
+[node name="Lobby" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -10,13 +10,37 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_o1atq")
-testing_label = NodePath("Label")
 
-[node name="Label" type="Label" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_font_sizes/font_size = 24
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="ConnectButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "CONNECT"
+
+[node name="CreateButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "CREATE ROOM"
+
+[node name="RoomCodeInput" type="LineEdit" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="JoinButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "JOIN"
+
+[node name="PlayerList" type="ItemList" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="StartButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "START"
+
+[node name="StatusLabel" type="Label" parent="."]
+layout_mode = 0
+offset_left = 8.0
+offset_top = 320.0
+offset_right = 48.0
+offset_bottom = 343.0
