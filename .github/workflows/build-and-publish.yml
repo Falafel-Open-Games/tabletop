@@ -2,7 +2,7 @@ name: Build exports & publish
 
 on:
   push:
-    branches: [ main, html-wrapper ]
+    branches: [ main, deploy-to-fly ]
   workflow_dispatch:
 
 env:
@@ -97,6 +97,34 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/tabletop-server:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/tabletop-server:${{ github.sha }}
 
+  fly-deploy:
+    name: Deploy to Fly.io
+    needs: dockerhub-publish
+    runs-on: ubuntu-latest
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      FLY_APP_NAME: ${{ vars.FLY_APP_NAME }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Generate fly.toml from template
+        run: |
+          test -n "$FLY_APP_NAME" || { echo "FLY_APP_NAME variable is required"; exit 1; }
+          sed "s/YOUR_APP_NAME/${FLY_APP_NAME}/" fly.example.toml > fly.toml
+
+      - name: Install flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@v1
+
+      - name: Deploy latest image to Fly.io
+        run: |
+          flyctl deploy \
+            --config fly.toml \
+            --image docker.io/${{ secrets.DOCKERHUB_USERNAME }}/tabletop-server:${{ github.sha }} \
+            --wait-timeout 10m \
+            --now
+
   itch-publish:
     name: Publish Web build to itch.io
     needs: build-exports
@@ -162,4 +190,3 @@ jobs:
           files: dist/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-

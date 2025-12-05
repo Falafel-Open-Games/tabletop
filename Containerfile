@@ -9,10 +9,9 @@ WORKDIR /app
 
 # Copy exported headless server binary + pack
 # (these paths will be produced by the Godot export step)
-COPY build/server/tabletop_server.x86_64 ./tabletop_server
-COPY build/server/tabletop_server.pck ./tabletop_server.pck
+COPY --chmod=755 build/server/tabletop_server.x86_64 /app/tabletop_server
+COPY build/server/tabletop_server.pck /app/tabletop_server.pck
 
 EXPOSE 8910/tcp
 
-CMD ["./tabletop_server", "--main-pack", "tabletop_server.pck", "--server"]
-
+CMD ["/app/tabletop_server", "--main-pack", "tabletop_server.pck", "--server"]
