@@ -6,11 +6,18 @@ extends Control
 @onready var room_code_input = $VBoxContainer/RoomCodeInput
 @onready var player_list = $VBoxContainer/PlayerList
 @onready var start_button = $VBoxContainer/StartButton
+@onready var chat_button = $VBoxContainer/ChatButton
 @onready var status_label = $StatusLabel
 
-var is_connected: bool = false
 var is_in_room: bool = false
 var room_id: String
+
+# Rules
+# When the scene loads, If has room id => connect and join room
+# If room id is empty => show connect button
+# Once connected, show create and join buttons
+# Once joined, show chat button, players list and match status
+# If player is host, show match state button
 
 func _ready():
     # Connect network signals
@@ -29,44 +36,54 @@ func _ready():
     create_button.pressed.connect(_on_create_pressed)
     join_button.pressed.connect(_on_join_pressed)
     start_button.pressed.connect(_on_start_pressed)
+    chat_button.pressed.connect(_on_chat_pressed)
 
     var room_id_arg = Arguments.get_argument(&"roomid")
 
-    if not room_id_arg.is_ok():
-        _throw_error_room_id(room_id_arg)
-        return
-
-    room_id = room_id_arg.value()
-    room_code_input.text = room_id
-
-    # Initially disable room buttons until connected
-    _update_ui_state()
+    # Create or join room
+    if room_id_arg.is_ok():
+        if NetworkManager.is_connected:
+            _reset_ui_state()
+            chat_button.visible = true
+            player_list.visible = true
+        else:
+            room_id = room_id_arg.value()
+            room_code_input.text = room_id
+            _on_connect_pressed()
+    else:
+        _reset_ui_state()
 
 func _on_connect_pressed():
-    if is_connected:
-        status_label.text = "Disconnecting..."
-        NetworkManager.multiplayer.multiplayer_peer = null
-        is_connected = false
-        _update_ui_state()
-        return
+    _reset_ui_state()
 
-    connect_button.disabled = true
-    NetworkManager.connect_to_server()
+    if NetworkManager.is_connected:
+        status_label.text = "Disconnecting..."
+        NetworkManager.disconnect_from_server()
+    else:
+        NetworkManager.connect_to_server()
 
 func _on_connected_to_server():
     print("Connected to server!")
-    is_connected = true
     status_label.text = "Connected to server"
-    _update_ui_state()
+    connect_button.text = "DISCONNECT"
+
+    if room_id == "":
+        _reset_ui_state()
+        create_button.visible = true
+        room_code_input.visible = true
+        join_button.visible = true
+    else:
+        _on_join_pressed()
 
 func _on_disconnected_from_server():
     print("Disconnected from server")
-    is_connected = false
     status_label.text = "Disconnected from server"
-    _update_ui_state()
+    connect_button.text = "CONNECT"
+    _reset_ui_state()
 
 func _on_create_pressed():
-    if not is_connected:
+    _reset_ui_state()
+    if not NetworkManager.is_connected:
         status_label.text = "Connect to server first!"
         return
 
@@ -75,24 +92,32 @@ func _on_create_pressed():
     NetworkManager.create_room(room_id)
 
 func _on_join_pressed():
-    if not is_connected:
+    _reset_ui_state()
+    if not NetworkManager.is_connected:
         status_label.text = "Connect to server first!"
         return
 
     var room_code = room_code_input.text.to_upper()
 
+    if room_code == "":
+        return
+
     status_label.text = "Joining room " + room_code + "..."
     NetworkManager.join_room(room_id)
 
-func _on_room_created(room_id: String):
-    status_label.text = "Room created! Code: " + room_id
-    _update_start_button()
+func _on_room_created(new_room_id: String):
+    _reset_ui_state()
+    chat_button.visible = true
+    player_list.visible = true
+    status_label.text = "Room created! Code: " + new_room_id
     _clear_player_list()
     player_list.add_item("You (Host)")
 
 func _on_room_joined(room_data: Dictionary):
+    _reset_ui_state()
+    chat_button.visible = true
+    player_list.visible = true
     status_label.text = "Joined room: " + room_data.room_id
-    _update_start_button()
     _clear_player_list()
 
     for player_id in room_data.player_ids:
@@ -104,12 +129,18 @@ func _on_room_joined(room_data: Dictionary):
 
 func _on_room_creation_failed(reason: String):
     status_label.text = "Room creation failed: " + reason
-    _update_ui_state()
+    _reset_ui_state()
+    create_button.visible = true
+    room_code_input.visible = true
+    join_button.visible = true
 
 func _on_join_failed(reason: String):
     status_label.text = "Join failed: " + reason
     is_in_room = false
-    _update_ui_state()
+    _reset_ui_state()
+    create_button.visible = true
+    room_code_input.visible = true
+    join_button.visible = true
 
 func _on_player_joined(player_id: int, _player_info: Dictionary):
     var prefix = "Player_" + str(player_id)
@@ -117,33 +148,40 @@ func _on_player_joined(player_id: int, _player_info: Dictionary):
         prefix = "You"
     player_list.add_item(prefix)
     is_in_room = true
-    _update_ui_state()
-    _update_start_button()
 
 func _on_player_left(player_id: int):
     _clear_player_list()
-    _update_start_button()
 
 func _on_host_changed(new_host_id: int):
     if new_host_id == NetworkManager.multiplayer.get_unique_id():
         status_label.text = "You are now the host"
-    _update_start_button()
 
-func _update_ui_state():
-    var connected = is_connected
-    create_button.disabled = not connected
-    join_button.disabled = not connected or is_in_room
+# func _update_ui_state():
+    # var connected = is_player_connected
+    # create_button.disabled = not connected
+    # join_button.disabled = not connected or is_in_room
     # room_code_input.disabled = not connected
-    connect_button.text = "Disconnect" if connected else "Connect"
-    connect_button.disabled = false
+    # connect_button.text = "Disconnect" if connected else "Connect"
+    # connect_button.disabled = false
 
-func _update_start_button():
-    start_button.disabled = not is_connected
+func _reset_ui_state():
+    create_button.visible = false
+    room_code_input.visible = false
+    join_button.visible = false
+    chat_button.visible = false
+    start_button.visible = false
+    player_list.visible = false
 
 func _clear_player_list():
     player_list.clear()
 
 func _on_start_pressed():
+    pass
+    # Change match to Running
+    # Change button label
+    # Change match status
+
+func _on_chat_pressed():
     get_tree().change_scene_to_file("res://scenes/client.tscn")
 
 func _throw_error_room_id(result: StringResult):

@@ -32,15 +32,25 @@ layout_mode = 2
 text = "JOIN"
 
 [node name="PlayerList" type="ItemList" parent="VBoxContainer"]
+custom_minimum_size = Vector2(200, 150)
 layout_mode = 2
+size_flags_vertical = 3
 
 [node name="StartButton" type="Button" parent="VBoxContainer"]
 layout_mode = 2
-text = "START"
+text = "START MATCH"
+
+[node name="ChatButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "CHAT"
 
 [node name="StatusLabel" type="Label" parent="."]
-layout_mode = 0
-offset_left = 8.0
-offset_top = 320.0
-offset_right = 48.0
-offset_bottom = 343.0
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -54.0
+offset_bottom = 23.0
+grow_horizontal = 0
+text = "Status:"
+horizontal_alignment = 2
