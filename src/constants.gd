@@ -6,15 +6,6 @@ const DEFAULT_PORT = 8910
 const MIN_PLAYERS = 2
 const MAX_PLAYERS = 6
 
-# RPC Keys
-const RPC_CREATE_ROOM = "rpc_create_room"
-const RPC_JOIN_ROOM = "join_room"
-const RPC_LEAVE_ROOM = "leave_room"
-const RPC_START_GAME = "start_game"
-const RPC_UPDATE_ROOM_LIST = "update_room_list"
-const RPC_PLAYER_JOINED = "player_joined"
-const RPC_PLAYER_LEFT = "player_left"
-
 # Game States
 enum GameState { WAITING, PLAYING, FINISHED }
 

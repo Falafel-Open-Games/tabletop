@@ -10,11 +10,13 @@ signal player_joined(player_id: int, player_info: Dictionary)
 signal player_left(player_id: int)
 signal host_changed(new_host_id: int)
 signal message_received(text_content)
+signal room_player_list_updated(room_id: String, players: Array)
 
 var peer = WebSocketMultiplayerPeer
 var current_room_id: String = ""
 var is_host: bool = false
 var is_connected: bool = false
+var current_players: Array = []  # list of dictionaries { id, name, ... }
 
 func connect_to_server(address: String = Constants.DEFAULT_SERVER_URL) -> bool:
     peer = WebSocketMultiplayerPeer.new()
@@ -23,6 +25,7 @@ func connect_to_server(address: String = Constants.DEFAULT_SERVER_URL) -> bool:
     multiplayer.connected_to_server.connect(_on_connected)
     multiplayer.server_disconnected.connect(_on_disconnected)
     multiplayer.connection_failed.connect(_on_connection_failed)
+    multiplayer.peer_disconnected.connect(_on_disconnected)
 
     print(address)
     var error = peer.create_client(address)
@@ -31,8 +34,14 @@ func connect_to_server(address: String = Constants.DEFAULT_SERVER_URL) -> bool:
         return false
 
     multiplayer.multiplayer_peer = peer
-    set_process(true)
     return true
+
+func disconnect_from_server():
+    if not multiplayer.multiplayer_peer:
+        return
+
+    print("Disconnecting from server...")
+    _handle_server_disconnected()
 
 func _on_connected():
     print("Connected to server")
@@ -41,7 +50,14 @@ func _on_connected():
 
 func _on_disconnected():
     print("Disconnected from server")
+    _handle_server_disconnected()
+
+func _handle_server_disconnected():
     is_connected = false
+    current_room_id = ""
+    is_host = false
+    current_players.clear()
+    multiplayer.multiplayer_peer.close()
     multiplayer.multiplayer_peer = null
     disconnected_from_server.emit()
 
@@ -61,11 +77,7 @@ func create_room(room_id: String, max_players: int = Constants.MAX_PLAYERS) -> v
         printerr("Not connected to server")
         return
 
-    print("📤 Client: Sending rpc_create_room to server (peer_id=1)")
-    print("   Current multiplayer.peer: ", multiplayer.multiplayer_peer)
-
-    rpc_id(1, Constants.RPC_CREATE_ROOM, room_id, max_players)
-    print("✅ rpc_id call completed")
+    rpc_id(1, "rpc_create_room", room_id, max_players)
 
 
 func join_room(room_id: String):
@@ -181,3 +193,11 @@ func turn_changed(current_player_id: int):
 @rpc("any_peer")
 func on_broadcasted_message(text_content: String):
     emit_signal("message_received", text_content)
+
+@rpc("any_peer")
+func on_room_player_list_updated(room_id: String, players: Array) -> void:
+    if room_id != current_room_id:
+        return  # Ignore if this is not our active room
+
+    current_players = players
+    emit_signal("room_player_list_updated", room_id, players)
