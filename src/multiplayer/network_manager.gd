@@ -4,6 +4,7 @@ signal connected_to_server
 signal disconnected_from_server
 signal room_created(room_id: String)
 signal room_joined(room_info: Dictionary)
+signal room_left
 signal room_creation_failed(reason: String)
 signal join_failed(reason: String)
 signal player_joined(player_id: int, player_info: Dictionary)
@@ -15,7 +16,7 @@ signal room_player_list_updated(room_id: String, players: Array)
 var peer = WebSocketMultiplayerPeer
 var current_room_id: String = ""
 var is_host: bool = false
-var is_connected: bool = false
+var is_player_connected: bool = false
 var current_players: Array = []  # list of dictionaries { id, name, ... }
 
 func connect_to_server(address: String = Constants.DEFAULT_SERVER_URL) -> bool:
@@ -45,7 +46,7 @@ func disconnect_from_server():
 
 func _on_connected():
     print("Connected to server")
-    is_connected = true
+    is_player_connected = true
     connected_to_server.emit()
 
 func _on_disconnected():
@@ -53,7 +54,7 @@ func _on_disconnected():
     _handle_server_disconnected()
 
 func _handle_server_disconnected():
-    is_connected = false
+    is_player_connected = false
     current_room_id = ""
     is_host = false
     current_players.clear()
@@ -62,10 +63,8 @@ func _handle_server_disconnected():
     disconnected_from_server.emit()
 
 func _on_connection_failed():
-    print("Connection failed!")
-    # status_label.text = "Connection failed - check server address"
     print("Connection failed - check server address")
-    is_connected = false
+    is_player_connected = false
 
 # ─────────────────────────────────────────────────────────────────
 # CLIENT-SIDE METHODS - Call these from your UI
@@ -147,6 +146,7 @@ func rpc_send_chat_message(msg: String):
 
 @rpc("any_peer")
 func on_room_created(room_id: String):
+    print("on_room_created")
     current_room_id = room_id
     is_host = true
     emit_signal("room_created", room_id)
@@ -156,6 +156,12 @@ func on_room_joined(room_id: String, room_data: Dictionary):
     current_room_id = room_id
     is_host = false
     emit_signal("room_joined", room_data)
+
+@rpc("any_peer")
+func on_room_left():
+    current_room_id = ""
+    is_host = false
+    emit_signal("room_left")
 
 @rpc("any_peer")
 func on_room_creation_failed(reason: String):
@@ -199,5 +205,6 @@ func on_room_player_list_updated(room_id: String, players: Array) -> void:
     if room_id != current_room_id:
         return  # Ignore if this is not our active room
 
+    current_players.clear()
     current_players = players
     emit_signal("room_player_list_updated", room_id, players)

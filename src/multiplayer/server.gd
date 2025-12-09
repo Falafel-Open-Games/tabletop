@@ -122,16 +122,21 @@ func rpc_leave_room():
     _remove_player_from_room(peer_id, room_id)
 
 func _remove_player_from_room(peer_id: int, room_id: String):
-    var room = rooms[room_id]
+    print("_remove_player_from_room %s" % peer_id)
+    var room = rooms.get(room_id)
+    if room == null:
+        return
+
     room.player_ids.erase(peer_id)
     peer_to_room.erase(peer_id)
+    network_manager_node.rpc_id(peer_id, "on_room_left")
 
     # Notify remaining players
     for player_id in room.player_ids:
         network_manager_node.rpc_id(player_id, "on_player_left", peer_id)
 
-    # Destroy room if empty or host left
-    if room.player_ids.is_empty() or room.host_id == peer_id:
+    # Destroy room if empty
+    if room.player_ids.is_empty():
         _destroy_room(room_id)
     else:
         _notify_room_player_list(room_id)
