@@ -16,6 +16,7 @@ signal room_player_list_updated(room_id: String, players: Array)
 var peer = WebSocketMultiplayerPeer
 var current_room_id: String = ""
 var is_host: bool = false
+var room_host_id: int
 var is_player_connected: bool = false
 var current_players: Array = []  # list of dictionaries { id, name, ... }
 
@@ -67,7 +68,7 @@ func _on_connection_failed():
     is_player_connected = false
 
 # ─────────────────────────────────────────────────────────────────
-# CLIENT-SIDE METHODS - Call these from your UI
+# CLIENT-SIDE METHODS
 # These send RPC calls to the server
 # ─────────────────────────────────────────────────────────────────
 
@@ -148,12 +149,14 @@ func rpc_send_chat_message(msg: String):
 func on_room_created(room_id: String):
     print("on_room_created")
     current_room_id = room_id
+    room_host_id = multiplayer.get_unique_id()
     is_host = true
     emit_signal("room_created", room_id)
 
 @rpc("any_peer")
 func on_room_joined(room_id: String, room_data: Dictionary):
     current_room_id = room_id
+    room_host_id = room_data.host_id
     is_host = false
     emit_signal("room_joined", room_data)
 
@@ -181,6 +184,7 @@ func on_player_left(player_id: int):
 
 @rpc("any_peer")
 func on_host_changed(new_host_id: int):
+    room_host_id = new_host_id
     is_host = (new_host_id == multiplayer.get_unique_id())
     emit_signal("host_changed", new_host_id)
 

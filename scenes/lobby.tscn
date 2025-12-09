@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://svettry7k5v0" path="res://src/ui/lobby_ui.gd" id="1_o1atq"]
 
-[node name="Lobby" type="Control"]
+[node name="Lobby" type="Control" node_paths=PackedStringArray("connect_button", "create_button", "join_button", "room_code_input", "player_list", "start_button", "chat_button", "status_label")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -10,6 +10,14 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_o1atq")
+connect_button = NodePath("VBoxContainer/ConnectButton")
+create_button = NodePath("VBoxContainer/CreateButton")
+join_button = NodePath("VBoxContainer/JoinButton")
+room_code_input = NodePath("VBoxContainer/RoomCodeInput")
+player_list = NodePath("VBoxContainer/PlayerList")
+start_button = NodePath("VBoxContainer/StartButton")
+chat_button = NodePath("VBoxContainer/ChatButton")
+status_label = NodePath("StatusLabel")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="."]
 layout_mode = 0
