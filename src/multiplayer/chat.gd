@@ -30,7 +30,8 @@ func _on_button_exit():
     get_tree().change_scene_to_file("res://scenes/lobby.tscn")
 
 func _on_message_received(text_content):
-    chat_messages.text += text_content
+    var message = format_player_message(text_content)
+    chat_messages.text += message
 
 func _on_room_player_list_updated(_room_id: String, players: Array):
     print("_on_room_player_list_updated: %s" % players.size())
@@ -40,3 +41,18 @@ func _on_room_player_list_updated(_room_id: String, players: Array):
         if int(p.id) == multiplayer.get_unique_id():
             entry += " (You)"
         connected_players.text += "\n%s" % entry
+
+func format_player_message(message: String) -> String:
+    var my_id = multiplayer.get_unique_id()
+    var regex = RegEx.new()
+    regex.compile("<(\\d+)>") # Looks for digits between < >
+
+    var result = regex.search(message)
+    if result:
+        var full_tag = result.get_string(0) # e.g., "<12345>"
+        var id_str = result.get_string(1)   # e.g., "12345"
+
+        if id_str.is_valid_int() and int(id_str) == my_id:
+            return message.replace(full_tag, "<YOU>")
+
+    return message
