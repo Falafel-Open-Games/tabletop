@@ -9,15 +9,8 @@ extends Control
 @onready var chat_button = $VBoxContainer/ChatButton
 @onready var status_label = $StatusLabel
 
-var is_in_room: bool = false
 var room_id: String
-
-# Rules
-# When the scene loads, If has room id => connect and join room
-# If room id is empty => show connect button
-# Once connected, show create and join buttons
-# Once joined, show chat button, players list and match status
-# If player is host, show match state button
+var room_host_id: int
 
 func _ready():
     # Connect network signals
@@ -25,11 +18,13 @@ func _ready():
     NetworkManager.disconnected_from_server.connect(_on_disconnected_from_server)
     NetworkManager.room_created.connect(_on_room_created)
     NetworkManager.room_joined.connect(_on_room_joined)
+    NetworkManager.room_left.connect(_on_room_left)
     NetworkManager.room_creation_failed.connect(_on_room_creation_failed)
     NetworkManager.join_failed.connect(_on_join_failed)
     NetworkManager.player_joined.connect(_on_player_joined)
     NetworkManager.player_left.connect(_on_player_left)
     NetworkManager.host_changed.connect(_on_host_changed)
+    NetworkManager.room_player_list_updated.connect(_on_room_player_list_updated)
 
     # Connect UI signals
     connect_button.pressed.connect(_on_connect_pressed)
@@ -38,25 +33,38 @@ func _ready():
     start_button.pressed.connect(_on_start_pressed)
     chat_button.pressed.connect(_on_chat_pressed)
 
+    _reset_ui_state()
+
     var room_id_arg = Arguments.get_argument(&"roomid")
 
-    # Create or join room
     if room_id_arg.is_ok():
-        if NetworkManager.is_connected:
-            _reset_ui_state()
+        room_id = room_id_arg.value()
+        room_code_input.text = room_id
+
+    if NetworkManager.is_player_connected:
+        if NetworkManager.current_room_id.is_empty() and not room_id.is_empty():
+            # Joining an existent room
+            _on_join_pressed()
+        else:
+            # Back from chat to lobby while in a room
             chat_button.visible = true
             player_list.visible = true
-        else:
-            room_id = room_id_arg.value()
-            room_code_input.text = room_id
-            _on_connect_pressed()
+            status_label.text = "Joined room: " + NetworkManager.current_room_id
+            join_button.text = "LEAVE ROOM"
+            connect_button.text = "DISCONNECT"
+            var player_ids: Array[int]
+            for player in NetworkManager.current_players:
+                player_ids.append(player.id)
+            _update_players_list(player_ids)
+
     else:
-        _reset_ui_state()
+        # Connecting to server
+        _on_connect_pressed()
 
 func _on_connect_pressed():
     _reset_ui_state()
 
-    if NetworkManager.is_connected:
+    if NetworkManager.is_player_connected:
         status_label.text = "Disconnecting..."
         NetworkManager.disconnect_from_server()
     else:
@@ -71,7 +79,6 @@ func _on_connected_to_server():
         _reset_ui_state()
         create_button.visible = true
         room_code_input.visible = true
-        join_button.visible = true
     else:
         _on_join_pressed()
 
@@ -83,7 +90,7 @@ func _on_disconnected_from_server():
 
 func _on_create_pressed():
     _reset_ui_state()
-    if not NetworkManager.is_connected:
+    if not NetworkManager.is_player_connected:
         status_label.text = "Connect to server first!"
         return
 
@@ -93,87 +100,101 @@ func _on_create_pressed():
 
 func _on_join_pressed():
     _reset_ui_state()
-    if not NetworkManager.is_connected:
+    if not NetworkManager.is_player_connected:
         status_label.text = "Connect to server first!"
         return
 
-    var room_code = room_code_input.text.to_upper()
+    if NetworkManager.current_room_id.is_empty():
+        var room_code = room_code_input.text
 
-    if room_code == "":
-        return
+        if room_code == "":
+            return
 
-    status_label.text = "Joining room " + room_code + "..."
-    NetworkManager.join_room(room_id)
+        status_label.text = "Joining room " + room_code + "..."
+        NetworkManager.join_room(room_id)
+    else:
+        NetworkManager.leave_room()
+
 
 func _on_room_created(new_room_id: String):
     _reset_ui_state()
     chat_button.visible = true
     player_list.visible = true
-    status_label.text = "Room created! Code: " + new_room_id
-    _clear_player_list()
-    player_list.add_item("You (Host)")
+    status_label.text = "Room created and joined! Code: " + new_room_id
+    join_button.text = "LEAVE ROOM"
+    player_list.clear()
+    room_host_id = NetworkManager.multiplayer.get_unique_id()
+    player_list.add_item("You (Host) %s" % room_host_id)
 
 func _on_room_joined(room_data: Dictionary):
     _reset_ui_state()
     chat_button.visible = true
     player_list.visible = true
     status_label.text = "Joined room: " + room_data.room_id
-    _clear_player_list()
+    join_button.text = "LEAVE ROOM"
+    room_host_id = room_data.host_id
 
-    for player_id in room_data.player_ids:
-        var is_host = (player_id == room_data.host_id)
-        var prefix = "You" if player_id == NetworkManager.multiplayer.get_unique_id() else "Player"
-        if is_host:
-            prefix += " (Host)"
-        player_list.add_item(prefix + "_" + str(player_id))
+    print("_on_room_player_list_updated %s" % room_data.player_ids.size())
+    _update_players_list(room_data.player_ids)
+
+func _on_room_left():
+    _reset_ui_state()
+    create_button.visible = true
+    room_code_input.visible = true
+    status_label.text = "Left room"
+    join_button.text = "JOIN ROOM"
 
 func _on_room_creation_failed(reason: String):
     status_label.text = "Room creation failed: " + reason
     _reset_ui_state()
     create_button.visible = true
     room_code_input.visible = true
-    join_button.visible = true
 
 func _on_join_failed(reason: String):
     status_label.text = "Join failed: " + reason
-    is_in_room = false
     _reset_ui_state()
     create_button.visible = true
     room_code_input.visible = true
-    join_button.visible = true
 
 func _on_player_joined(player_id: int, _player_info: Dictionary):
     var prefix = "Player_" + str(player_id)
     if player_id == NetworkManager.multiplayer.get_unique_id():
         prefix = "You"
     player_list.add_item(prefix)
-    is_in_room = true
 
 func _on_player_left(player_id: int):
-    _clear_player_list()
+    print("_on_player_left %s" % player_id)
 
 func _on_host_changed(new_host_id: int):
+    room_host_id = new_host_id
     if new_host_id == NetworkManager.multiplayer.get_unique_id():
         status_label.text = "You are now the host"
-
-# func _update_ui_state():
-    # var connected = is_player_connected
-    # create_button.disabled = not connected
-    # join_button.disabled = not connected or is_in_room
-    # room_code_input.disabled = not connected
-    # connect_button.text = "Disconnect" if connected else "Connect"
-    # connect_button.disabled = false
+    var player_ids: Array[int]
+    for player in NetworkManager.current_players:
+        player_ids.append(player.id)
+    _update_players_list(player_ids)
 
 func _reset_ui_state():
     create_button.visible = false
     room_code_input.visible = false
-    join_button.visible = false
     chat_button.visible = false
     start_button.visible = false
     player_list.visible = false
 
-func _clear_player_list():
+func _on_room_player_list_updated(_room_id: String, players: Array) -> void:
+    print("_on_room_player_list_updated %s" % players.size())
+    var player_ids: Array[int]
+    for player in players:
+        player_ids.append(player.id)
+    _update_players_list(player_ids)
+
+func _update_players_list(player_ids: Array[int]):
     player_list.clear()
+    for player_id in player_ids:
+        var prefix = "You" if player_id == NetworkManager.multiplayer.get_unique_id() else "Player"
+        if player_id == room_host_id:
+            prefix += " (Host)"
+        player_list.add_item(prefix + "_" + str(player_id))
 
 func _on_start_pressed():
     pass
