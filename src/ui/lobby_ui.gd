@@ -24,6 +24,7 @@ func _ready():
     NetworkManager.player_left.connect(_on_player_left)
     NetworkManager.host_changed.connect(_on_host_changed)
     NetworkManager.room_player_list_updated.connect(_on_room_player_list_updated)
+    NetworkManager.game_state_changed.connect(_on_game_state_changed)
 
     # Connect UI signals
     connect_button.pressed.connect(_on_connect_pressed)
@@ -99,7 +100,8 @@ func _on_join_pressed():
         NetworkManager.leave_room()
 
 func _on_start_pressed():
-    pass
+    print("_on_start_pressed")
+    NetworkManager.request_game_start()
     # Change match to Running
     # Change button label
     # Change match status
@@ -133,6 +135,7 @@ func _on_room_created(new_room_id: String):
     _reset_ui_state()
     chat_button.visible = true
     player_list.visible = true
+    start_button.visible = true
     status_label.text = "Room created and joined! Code: " + new_room_id
     join_button.text = "LEAVE ROOM"
     player_list.clear()
@@ -178,11 +181,15 @@ func _on_player_left(player_id: int):
 func _on_host_changed(new_host_id: int):
     if new_host_id == multiplayer.get_unique_id():
         status_label.text = "You are now the host"
+        start_button.visible = true
     _update_players_list_obj()
 
 func _on_room_player_list_updated(_room_id: String, players: Array) -> void:
     print("_on_room_player_list_updated %s" % players.size())
     _update_players_list_obj(players)
+
+func _on_game_state_changed(game_state: Constants.GameState):
+    status_label.text = "Match status changed to %s" % game_state
 
 # ─────────────────────────────────────────────────────────────────
 # Helper methods
