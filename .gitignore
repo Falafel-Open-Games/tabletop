@@ -1,5 +1,10 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
-/build/
 fly.toml
+
+/build/*
+!/build/html-client/.gitkeep
+!/build/html-client/game/.gitkeep
+!/build/server/.gitkeep
+!/build/linux-client/.gitkeep

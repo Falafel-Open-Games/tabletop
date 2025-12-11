@@ -2,7 +2,7 @@ name: Build exports & publish
 
 on:
   push:
-    branches: [ main, deploy-to-fly ]
+    branches: [ main, fix-missing-build-folders]
   workflow_dispatch:
 
 env:
@@ -28,21 +28,18 @@ jobs:
 
       - name: Export Linux Headless Server
         run: |
-          mkdir -p build/server
           godot --headless --verbose \
             --export-release "Linux Headless Server" \
             build/server/tabletop_server.x86_64
 
       - name: Export Linux Client
         run: |
-          mkdir -p build/linux-client
           godot --headless --verbose \
             --export-release "Linux Client" \
             build/linux-client/tabletop.x86_64
 
       - name: Export Web (HTML)
         run: |
-          mkdir -p build/html-client/game
           godot --headless --verbose \
             --export-release "Web" \
             build/html-client/game/index.html
