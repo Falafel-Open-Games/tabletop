@@ -68,7 +68,13 @@ func _on_connect_pressed():
         status_label.text = "Disconnecting..."
         NetworkManager.disconnect_from_server()
     else:
-        NetworkManager.connect_to_server()
+        var server_url_arg = Arguments.get_argument(&"url")
+        var server_url: String = Constants.DEFAULT_SERVER_URL
+
+        if server_url_arg.is_ok():
+            server_url = server_url_arg.value()
+
+        NetworkManager.connect_to_server(server_url)
 
 func _on_create_pressed():
     _reset_ui_state()

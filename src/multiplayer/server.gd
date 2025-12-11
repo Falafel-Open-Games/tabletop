@@ -10,7 +10,7 @@ var server_peer: WebSocketMultiplayerPeer
 var network_manager_node: Node
 
 func _ready():
-    if not (OS.has_feature("dedicated_server") or Arguments.get_cli_flag("server")):
+    if not (OS.has_feature("dedicated_server") or Arguments.get_argument("server")):
         printerr("Server must be run with --headless or as dedicated server export!")
         get_tree().quit()
 
