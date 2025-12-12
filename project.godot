@@ -11,14 +11,14 @@ config_version=5
 [application]
 
 config/name="Tabletop"
-run/main_scene="uid://bprffqj06ou7r"
+run/main_scene="uid://buwi684kbm0xc"
 config/features=PackedStringArray("4.5", "GL Compatibility")
 config/icon="res://icon.svg"
 
 [autoload]
 
 Utils="*res://src/utils.gd"
-MultiplayerManager="*res://src/multiplayer/multiplayer_manager.gd"
+NetworkManager="*res://src/multiplayer/network_manager.gd"
 
 [display]
 
