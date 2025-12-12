@@ -13,6 +13,7 @@ signal host_changed(new_host_id: int)
 signal message_received(text_content)
 signal room_player_list_updated(room_id: String, players: Array)
 signal game_state_changed(new_state: int)
+signal game_started_failed(reason: String)
 
 var peer = WebSocketMultiplayerPeer
 var current_room_id: String = ""
@@ -97,10 +98,17 @@ func leave_room():
     current_room_id = ""
     is_host = false
 
+func request_return_lobby():
+    if is_host:
+        rpc_id(1, "rpc_go_to_lobby")
+
 func request_game_start():
-    print("request_game_start %s" % is_host)
     if is_host:
         rpc_id(1, "rpc_start_game")
+
+func request_game_finish():
+    if is_host:
+        rpc_id(1, "rpc_finish_game")
 
 func send_chat_message(msg: String):
     print(msg)
@@ -118,7 +126,6 @@ func rpc_create_room(room_id: String, max_players: int) -> void:
         # Server handles this, client stub does nothing
         get_node("/root/Server").rpc_create_room(room_id, max_players)
         return
-    print("Client stub: rpc_create_room called (shouldn't happen on client)")
 
 @rpc("any_peer", "call_local")
 func rpc_join_room(room_id: String):
@@ -127,7 +134,6 @@ func rpc_join_room(room_id: String):
         # Server handles this, client stub does nothing
         get_node("/root/Server").rpc_join_room(room_id)
         return
-    print("Client stub: rpc_join_room called (shouldn't happen on client)")
 
 @rpc("any_peer", "call_local")
 func rpc_leave_room():
@@ -136,16 +142,27 @@ func rpc_leave_room():
         # Server handles this, client stub does nothing
         get_node("/root/Server").rpc_leave_room()
         return
-    print("Client stub: rpc_leave_room called (shouldn't happen on client)")
+
+@rpc("any_peer", "call_local")
+func rpc_go_to_lobby():
+    print("rpc_go_to_lobby")
+    if multiplayer.is_server():
+        get_node("/root/Server").rpc_go_to_lobby()
+        return
 
 @rpc("any_peer", "call_local")
 func rpc_start_game():
     print("rpc_start_game")
     if multiplayer.is_server():
-        print("multiplayer.is_server()")
         get_node("/root/Server").rpc_start_game()
         return
-    print("Client stub: rpc_start_game called (shouldn't happen on client)")
+
+@rpc("any_peer", "call_local")
+func rpc_finish_game():
+    print("rpc_finish_game")
+    if multiplayer.is_server():
+        get_node("/root/Server").rpc_finish_game()
+        return
 
 @rpc("any_peer", "call_local")
 func rpc_send_chat_message(msg: String):
@@ -154,7 +171,6 @@ func rpc_send_chat_message(msg: String):
         # Server handles this, client stub does nothing
         get_node("/root/Server").rpc_send_chat_message(msg)
         return
-    print("Client stub: rpc_send_chat_message called (shouldn't happen on client)")
 
 # ─────────────────────────────────────────────────────────────────
 # SERVER RESPONSES - Called by server to notify client
@@ -211,6 +227,10 @@ func on_host_changed(new_host_id: int):
 @rpc("any_peer")
 func game_started(board_state: Dictionary):
     emit_signal("game_started", board_state)
+
+@rpc("any_peer")
+func on_game_start_failed(reason: String):
+    emit_signal("game_started_failed", reason)
 
 @rpc("any_peer")
 func piece_moved(piece_id: int, new_position: Vector3):
