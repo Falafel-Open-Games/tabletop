@@ -25,6 +25,7 @@ func _ready():
     NetworkManager.host_changed.connect(_on_host_changed)
     NetworkManager.room_player_list_updated.connect(_on_room_player_list_updated)
     NetworkManager.game_state_changed.connect(_on_game_state_changed)
+    NetworkManager.game_started_failed.connect(_on_game_start_failed)
 
     # Connect UI signals
     connect_button.pressed.connect(_on_connect_pressed)
@@ -52,6 +53,10 @@ func _ready():
             status_label.text = "Joined room: " + NetworkManager.current_room_id
             join_button.text = "LEAVE ROOM"
             connect_button.text = "DISCONNECT"
+
+            if NetworkManager.is_host:
+                start_button.visible = true
+
             _update_players_list_obj()
     else:
         # Connecting to server
@@ -106,11 +111,13 @@ func _on_join_pressed():
         NetworkManager.leave_room()
 
 func _on_start_pressed():
-    print("_on_start_pressed")
-    NetworkManager.request_game_start()
-    # Change match to Running
-    # Change button label
-    # Change match status
+    match NetworkManager.current_game_state:
+        Constants.GameState.WAITING:
+            NetworkManager.request_game_start()
+        Constants.GameState.PLAYING:
+            NetworkManager.request_game_finish()
+        Constants.GameState.FINISHED:
+            NetworkManager.request_return_lobby()
 
 func _on_chat_pressed():
     get_tree().change_scene_to_file("res://scenes/client.tscn")
@@ -195,7 +202,19 @@ func _on_room_player_list_updated(_room_id: String, players: Array) -> void:
     _update_players_list_obj(players)
 
 func _on_game_state_changed(game_state: Constants.GameState):
-    status_label.text = "Match status changed to %s" % game_state
+    var game_states = Constants.GameState.keys()
+    status_label.text = "Match status changed to %s" % game_states[game_state]
+
+    match game_state:
+        Constants.GameState.WAITING:
+            start_button.text = "START MATCH"
+        Constants.GameState.PLAYING:
+            start_button.text = "END MATCH"
+        Constants.GameState.FINISHED:
+            start_button.text = "WAIT FOR PLAYERS"
+
+func _on_game_start_failed(reason: String):
+    status_label.text = "Game failed to start: %s" % reason
 
 # ─────────────────────────────────────────────────────────────────
 # Helper methods

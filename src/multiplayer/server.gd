@@ -190,8 +190,7 @@ func broadcast_to_room(room_id: String, rpc_method: String, message: String):
         network_manager_node.rpc_id(player_id, rpc_method, message)
 
 @rpc("any_peer", "call_local")
-func rpc_start_game() -> void:
-    print("server rpc_start_game")
+func rpc_go_to_lobby() -> void:
     var peer_id = multiplayer.get_remote_sender_id()
 
     # Security check: Ensure the caller is actually the host of their room
@@ -205,8 +204,80 @@ func rpc_start_game() -> void:
         print("Unauthorized start attempt by peer ", peer_id)
         return
 
+    # Check game state
+    if room.game_state == Constants.GameState.WAITING:
+        network_manager_node.rpc_id(peer_id, "on_game_start_failed", "Players are already in lobby")
+        return
+
+    if room.game_state == Constants.GameState.PLAYING:
+        network_manager_node.rpc_id(peer_id, "on_game_start_failed", "Game already started")
+        return
+
+    # Update state
+    room.game_state = Constants.GameState.WAITING
+
+    # Broadcast to everyone in the room
+    for player_id in room.player_ids:
+        network_manager_node.rpc_id(player_id, "on_game_state_changed", room.game_state)
+
+
+@rpc("any_peer", "call_local")
+func rpc_start_game() -> void:
+    var peer_id = multiplayer.get_remote_sender_id()
+
+    # Security check: Ensure the caller is actually the host of their room
+    if not peer_to_room.has(peer_id):
+        return
+
+    var room_id = peer_to_room[peer_id]
+    var room = rooms[room_id]
+
+    if room.host_id != peer_id:
+        print("Unauthorized start attempt by peer ", peer_id)
+        return
+
+    # Check game state
+    if room.game_state == Constants.GameState.PLAYING:
+        network_manager_node.rpc_id(peer_id, "on_game_start_failed", "Game already started")
+        return
+
+    if room.game_state == Constants.GameState.FINISHED:
+        network_manager_node.rpc_id(peer_id, "on_game_start_failed", "Game already finished")
+        return
+
     # Update state
     room.game_state = Constants.GameState.PLAYING
+
+    # Broadcast to everyone in the room
+    for player_id in room.player_ids:
+        network_manager_node.rpc_id(player_id, "on_game_state_changed", room.game_state)
+
+@rpc("any_peer", "call_local")
+func rpc_finish_game() -> void:
+    var peer_id = multiplayer.get_remote_sender_id()
+
+    # Security check: Ensure the caller is actually the host of their room
+    if not peer_to_room.has(peer_id):
+        return
+
+    var room_id = peer_to_room[peer_id]
+    var room = rooms[room_id]
+
+    if room.host_id != peer_id:
+        print("Unauthorized start attempt by peer ", peer_id)
+        return
+
+    # Check game state
+    if room.game_state == Constants.GameState.WAITING:
+        network_manager_node.rpc_id(peer_id, "on_game_start_failed", "Game hasn't started yet.")
+        return
+
+    if room.game_state == Constants.GameState.FINISHED:
+        network_manager_node.rpc_id(peer_id, "on_game_start_failed", "Game already finished")
+        return
+
+    # Update state
+    room.game_state = Constants.GameState.FINISHED
 
     # Broadcast to everyone in the room
     for player_id in room.player_ids:
