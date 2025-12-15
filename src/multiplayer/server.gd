@@ -6,6 +6,7 @@ var server_url : String = Constants.DEFAULT_SERVER_URL
 
 var rooms: Dictionary = {}  # room_id -> RoomInfo
 var peer_to_room: Dictionary = {}  # peer_id -> room_id
+var disconnected_players = {}  # local_player_id : {peer_id, room_id, timeout_time}
 var server_peer: WebSocketMultiplayerPeer
 var network_manager_node: Node
 
@@ -36,6 +37,10 @@ func _ready():
 
     network_manager_node = get_node("/root/NetworkManager")
 
+# ─────────────────────────────────────────────────────────────────
+# MULTIPLAYER CALLBACKS
+# ─────────────────────────────────────────────────────────────────
+
 func _on_peer_connected(peer_id: int):
     print("Player connected: ", peer_id)
 
@@ -46,6 +51,11 @@ func _on_peer_disconnected(peer_id: int):
     if peer_to_room.has(peer_id):
         var room_id = peer_to_room[peer_id]
         _remove_player_from_room(peer_id, room_id)
+
+# ─────────────────────────────────────────────────────────────────
+# CLIENT-SIDE METHODS
+# These RPCs are sent from client
+# ─────────────────────────────────────────────────────────────────
 
 @rpc("any_peer", "call_local")
 func rpc_create_room(room_id: String, max_players: int = Constants.MAX_PLAYERS) -> void:
@@ -120,77 +130,7 @@ func rpc_leave_room():
 
     var room_id = peer_to_room[peer_id]
     _remove_player_from_room(peer_id, room_id)
-
-func _remove_player_from_room(peer_id: int, room_id: String):
-    print("_remove_player_from_room %s" % peer_id)
-    var room = rooms.get(room_id)
-    if room == null:
-        return
-
-    if not room.player_ids.has(peer_id):
-        return
-
-    room.player_ids.erase(peer_id)
-    peer_to_room.erase(peer_id)
     network_manager_node.rpc_id(peer_id, "on_room_left")
-
-    # Notify remaining players
-    for player_id in room.player_ids:
-        network_manager_node.rpc_id(player_id, "on_player_left", peer_id)
-
-    # Destroy room if empty
-    if room.player_ids.is_empty():
-        _destroy_room(room_id)
-    else:
-        _notify_room_player_list(room_id)
-
-        # Transfer host if host left
-        if room.host_id == peer_id:
-            room.host_id = room.player_ids[0]
-            for player_id in room.player_ids:
-                network_manager_node.rpc_id(player_id, "on_host_changed", room.host_id)
-
-func _destroy_room(room_id: String):
-    print("Destroying room: ", room_id)
-    rooms.erase(room_id)
-
-func _get_player_info(peer_id: int) -> Dictionary:
-    return {
-        "id": peer_id,
-        "name": "Player_" + str(peer_id)
-    }
-
-func _serialize_room(room: Constants.RoomInfo) -> Dictionary:
-    return {
-        "room_id": room.room_id,
-        "host_id": room.host_id,
-        "player_ids": room.player_ids,
-        "max_players": room.max_players,
-        "game_state": room.game_state,
-        "custom_properties": room.custom_properties
-    }
-
-func _notify_room_player_list(room_id: String) -> void:
-    var room = rooms.get(room_id)
-    if room == null:
-        return
-
-    var players: Array = []
-    for peer_id in room.player_ids:
-        players.append(_get_player_info(peer_id))  # { id, name, ... }
-
-    for peer_id in room.player_ids:
-        network_manager_node.rpc_id(peer_id, "on_room_player_list_updated", room_id, players)
-
-func broadcast_to_room(room_id: String, rpc_method: String, message: String):
-    if not rooms.has(room_id):
-        printerr("❌ Room not found: ", room_id)
-        return
-
-    var room = rooms[room_id]
-
-    for player_id in room.player_ids:
-        network_manager_node.rpc_id(player_id, rpc_method, message)
 
 @rpc("any_peer", "call_local")
 func rpc_go_to_lobby() -> void:
@@ -228,7 +168,6 @@ func rpc_go_to_lobby() -> void:
 func rpc_start_game() -> void:
     var peer_id = multiplayer.get_remote_sender_id()
 
-    # Security check: Ensure the caller is actually the host of their room
     if not peer_to_room.has(peer_id):
         return
 
@@ -259,7 +198,6 @@ func rpc_start_game() -> void:
 func rpc_finish_game() -> void:
     var peer_id = multiplayer.get_remote_sender_id()
 
-    # Security check: Ensure the caller is actually the host of their room
     if not peer_to_room.has(peer_id):
         return
 
@@ -286,9 +224,6 @@ func rpc_finish_game() -> void:
     for player_id in room.player_ids:
         network_manager_node.rpc_id(player_id, "on_game_state_changed", room.game_state)
 
-
-# --- CHAT LOGIC ---
-
 @rpc("any_peer", "call_local")
 func rpc_send_chat_message(message: String):
     print("SERVER rpc_send_chat_message: %s" % message)
@@ -300,4 +235,83 @@ func rpc_send_chat_message(message: String):
 
     var room_id = peer_to_room[peer_id]
     var final_msg = MESSAGE_TEMPLATE % [Utils.get_current_time(), peer_id, message]
-    broadcast_to_room(room_id, "on_broadcasted_message", final_msg)
+    _broadcast_to_room(room_id, "on_broadcasted_message", final_msg)
+
+# ─────────────────────────────────────────────────────────────────
+# SERVER-SIDE METHODS
+# These apply changes to the server and notify clients
+# ─────────────────────────────────────────────────────────────────
+
+func _remove_player_from_room(peer_id: int, room_id: String):
+    print("_remove_player_from_room %s" % peer_id)
+    var room = rooms.get(room_id)
+    if room == null:
+        return
+
+    if not room.player_ids.has(peer_id):
+        return
+
+    room.player_ids.erase(peer_id)
+    peer_to_room.erase(peer_id)
+
+    # Notify remaining players
+    for player_id in room.player_ids:
+        network_manager_node.rpc_id(player_id, "on_player_left", peer_id)
+
+    # Destroy room if empty
+    if room.player_ids.is_empty():
+        _destroy_room(room_id)
+    else:
+        _notify_room_player_list(room_id)
+
+        # Transfer host if host left
+        if room.host_id == peer_id:
+            room.host_id = room.player_ids[0]
+            for player_id in room.player_ids:
+                network_manager_node.rpc_id(player_id, "on_host_changed", room.host_id)
+
+func _destroy_room(room_id: String):
+    print("Destroying room: ", room_id)
+    rooms.erase(room_id)
+
+func _notify_room_player_list(room_id: String) -> void:
+    var room = rooms.get(room_id)
+    if room == null:
+        return
+
+    var players: Array = []
+    for peer_id in room.player_ids:
+        players.append(_get_player_info(peer_id))  # { id, name, ... }
+
+    for peer_id in room.player_ids:
+        network_manager_node.rpc_id(peer_id, "on_room_player_list_updated", room_id, players)
+
+func _broadcast_to_room(room_id: String, rpc_method: String, message: String):
+    if not rooms.has(room_id):
+        printerr("❌ Room not found: ", room_id)
+        return
+
+    var room = rooms[room_id]
+
+    for player_id in room.player_ids:
+        network_manager_node.rpc_id(player_id, rpc_method, message)
+
+# ─────────────────────────────────────────────────────────────────
+# HELPER METHODS
+# ─────────────────────────────────────────────────────────────────
+
+func _get_player_info(peer_id: int) -> Dictionary:
+    return {
+        "id": peer_id,
+        "name": "Player_" + str(peer_id)
+    }
+
+func _serialize_room(room: Constants.RoomInfo) -> Dictionary:
+    return {
+        "room_id": room.room_id,
+        "host_id": room.host_id,
+        "player_ids": room.player_ids,
+        "max_players": room.max_players,
+        "game_state": room.game_state,
+        "custom_properties": room.custom_properties
+    }
