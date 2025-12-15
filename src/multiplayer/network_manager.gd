@@ -28,14 +28,14 @@ var current_game_state: int = Constants.GameState.WAITING
 
 const SERVER_NODE = "/root/Server"
 
-func connect_to_server(address: String = Constants.DEFAULT_SERVER_URL) -> bool:
-    peer = WebSocketMultiplayerPeer.new()
-    peer.supported_protocols = ["godot-game"]
-
+func _ready():
     multiplayer.connected_to_server.connect(_on_connected)
     multiplayer.server_disconnected.connect(_on_disconnected)
     multiplayer.connection_failed.connect(_on_connection_failed)
-    multiplayer.peer_disconnected.connect(_on_disconnected)
+
+func connect_to_server(address: String = Constants.DEFAULT_SERVER_URL) -> bool:
+    peer = WebSocketMultiplayerPeer.new()
+    peer.supported_protocols = ["godot-game"]
 
     print(address)
     var error = peer.create_client(address)

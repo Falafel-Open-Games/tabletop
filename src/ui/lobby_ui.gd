@@ -100,12 +100,12 @@ func _on_join_pressed():
         return
 
     if NetworkManager.current_room_id.is_empty():
-        var room_code = room_code_input.text
+        room_id = room_code_input.text
 
-        if room_code == "":
+        if room_id == "":
             return
 
-        status_label.text = "Joining room " + room_code + "..."
+        status_label.text = "Joining room " + room_id + "..."
         NetworkManager.join_room(room_id)
     else:
         NetworkManager.leave_room()
@@ -131,9 +131,11 @@ func _on_connected_to_server():
     status_label.text = "Connected to server"
     connect_button.text = "DISCONNECT"
 
+    # Auto join room
     if room_id == "":
         _reset_ui_state()
         create_button.visible = true
+        join_button.visible = true
         room_code_input.visible = true
     else:
         _on_join_pressed()
@@ -142,7 +144,10 @@ func _on_disconnected_from_server():
     print("Disconnected from server")
     status_label.text = "Disconnected from server"
     connect_button.text = "CONNECT"
+    join_button.text = "JOIN ROOM"
     _reset_ui_state()
+    join_button.visible = false
+    room_code_input.visible = true
 
 func _on_room_created(new_room_id: String):
     _reset_ui_state()
@@ -174,12 +179,14 @@ func _on_room_creation_failed(reason: String):
     status_label.text = "Room creation failed: " + reason
     _reset_ui_state()
     create_button.visible = true
+    join_button.visible = true
     room_code_input.visible = true
 
 func _on_join_failed(reason: String):
     status_label.text = "Join failed: " + reason
     _reset_ui_state()
     create_button.visible = true
+    join_button.visible = true
     room_code_input.visible = true
 
 func _on_player_joined(player_id: int, _player_info: Dictionary):
