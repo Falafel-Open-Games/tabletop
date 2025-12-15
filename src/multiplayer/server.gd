@@ -127,6 +127,9 @@ func _remove_player_from_room(peer_id: int, room_id: String):
     if room == null:
         return
 
+    if not room.player_ids.has(peer_id):
+        return
+
     room.player_ids.erase(peer_id)
     peer_to_room.erase(peer_id)
     network_manager_node.rpc_id(peer_id, "on_room_left")
