@@ -12,8 +12,11 @@ signal player_left(player_id: int)
 signal host_changed(new_host_id: int)
 signal message_received(text_content)
 signal room_player_list_updated(room_id: String, players: Array)
+signal game_started(board_state: Dictionary)
 signal game_state_changed(new_state: int)
 signal game_started_failed(reason: String)
+signal piece_moved(piece_id: int, new_position: Vector3)
+signal turn_changed(current_player_id: int)
 
 var peer = WebSocketMultiplayerPeer
 var current_room_id: String = ""
@@ -22,6 +25,8 @@ var room_host_id: int
 var is_player_connected: bool = false
 var current_players: Array = []  # list of dictionaries { id, name, ... }
 var current_game_state: int = Constants.GameState.WAITING
+
+const SERVER_NODE = "/root/Server"
 
 func connect_to_server(address: String = Constants.DEFAULT_SERVER_URL) -> bool:
     peer = WebSocketMultiplayerPeer.new()
@@ -122,55 +127,58 @@ func send_chat_message(msg: String):
 @rpc("any_peer", "call_local")
 func rpc_create_room(room_id: String, max_players: int) -> void:
     print("rpc_create_room %s" % max_players)
-    if multiplayer.is_server():
-        # Server handles this, client stub does nothing
-        get_node("/root/Server").rpc_create_room(room_id, max_players)
+    if not multiplayer.is_server():
         return
+
+    get_node(SERVER_NODE).rpc_create_room(room_id, max_players)
 
 @rpc("any_peer", "call_local")
 func rpc_join_room(room_id: String):
     print("rpc_join_room %s" % room_id)
-    if multiplayer.is_server():
-        # Server handles this, client stub does nothing
-        get_node("/root/Server").rpc_join_room(room_id)
+    if not multiplayer.is_server():
         return
+
+    get_node(SERVER_NODE).rpc_join_room(room_id)
 
 @rpc("any_peer", "call_local")
 func rpc_leave_room():
     print("rpc_leave_room")
-    if multiplayer.is_server():
-        # Server handles this, client stub does nothing
-        get_node("/root/Server").rpc_leave_room()
+    if not multiplayer.is_server():
         return
+
+    get_node(SERVER_NODE).rpc_leave_room()
 
 @rpc("any_peer", "call_local")
 func rpc_go_to_lobby():
     print("rpc_go_to_lobby")
-    if multiplayer.is_server():
-        get_node("/root/Server").rpc_go_to_lobby()
+    if not multiplayer.is_server():
         return
+
+    get_node(SERVER_NODE).rpc_go_to_lobby()
 
 @rpc("any_peer", "call_local")
 func rpc_start_game():
     print("rpc_start_game")
-    if multiplayer.is_server():
-        get_node("/root/Server").rpc_start_game()
+    if not multiplayer.is_server():
         return
+
+    get_node(SERVER_NODE).rpc_start_game()
 
 @rpc("any_peer", "call_local")
 func rpc_finish_game():
     print("rpc_finish_game")
-    if multiplayer.is_server():
-        get_node("/root/Server").rpc_finish_game()
+    if not multiplayer.is_server():
         return
+
+    get_node(SERVER_NODE).rpc_finish_game()
 
 @rpc("any_peer", "call_local")
 func rpc_send_chat_message(msg: String):
     print("rpc_send_chat_message: %s" % msg)
-    if multiplayer.is_server():
-        # Server handles this, client stub does nothing
-        get_node("/root/Server").rpc_send_chat_message(msg)
+    if not multiplayer.is_server():
         return
+
+    get_node(SERVER_NODE).rpc_send_chat_message(msg)
 
 # ─────────────────────────────────────────────────────────────────
 # SERVER RESPONSES - Called by server to notify client
@@ -179,70 +187,69 @@ func rpc_send_chat_message(msg: String):
 
 @rpc("any_peer")
 func on_room_created(room_id: String):
-    print("on_room_created")
     current_room_id = room_id
     room_host_id = multiplayer.get_unique_id()
     is_host = true
-    emit_signal("room_created", room_id)
+    room_created.emit(room_id)
 
 @rpc("any_peer")
 func on_room_joined(room_id: String, room_data: Dictionary):
     current_room_id = room_id
     room_host_id = room_data.host_id
     is_host = false
-    emit_signal("room_joined", room_data)
+    room_joined.emit(room_data)
 
     if room_data.has("game_state"):
         current_game_state = room_data.game_state
-        emit_signal("game_state_changed", current_game_state)
+        game_state_changed.emit(current_game_state)
 
 @rpc("any_peer")
 func on_room_left():
     current_room_id = ""
     is_host = false
-    emit_signal("room_left")
+    room_left.emit()
 
 @rpc("any_peer")
 func on_room_creation_failed(reason: String):
-    emit_signal("room_creation_failed", reason)
+    room_creation_failed.emit(reason)
 
 @rpc("any_peer")
 func on_join_failed(reason: String):
-    emit_signal("join_failed", reason)
+    join_failed.emit(reason)
 
 @rpc("any_peer")
 func on_player_joined(player_id: int, player_info: Dictionary):
-    emit_signal("player_joined", player_id, player_info)
+    player_joined.emit(player_id, player_info)
 
 @rpc("any_peer")
 func on_player_left(player_id: int):
-    emit_signal("player_left", player_id)
+    player_left.emit(player_id)
 
 @rpc("any_peer")
 func on_host_changed(new_host_id: int):
     room_host_id = new_host_id
     is_host = (new_host_id == multiplayer.get_unique_id())
-    emit_signal("host_changed", new_host_id)
+    host_changed.emit(new_host_id)
 
 @rpc("any_peer")
-func game_started(board_state: Dictionary):
-    emit_signal("game_started", board_state)
+func on_game_started(board_state: Dictionary):
+    game_started.emit(board_state)
 
 @rpc("any_peer")
 func on_game_start_failed(reason: String):
-    emit_signal("game_started_failed", reason)
+    game_started_failed.emit(reason)
 
 @rpc("any_peer")
-func piece_moved(piece_id: int, new_position: Vector3):
-    emit_signal("piece_moved", piece_id, new_position)
+func on_piece_moved(piece_id: int, new_position: Vector3):
+    piece_moved.emit(piece_id, new_position)
 
 @rpc("any_peer")
-func turn_changed(current_player_id: int):
-    emit_signal("turn_changed", current_player_id)
+func on_turn_changed(current_player_id: int):
+    turn_changed.emit(current_player_id)
 
 @rpc("any_peer")
 func on_broadcasted_message(text_content: String):
-    emit_signal("message_received", text_content)
+    message_received.emit(text_content)
 
 @rpc("any_peer")
 func on_room_player_list_updated(room_id: String, players: Array) -> void:
@@ -251,10 +258,10 @@ func on_room_player_list_updated(room_id: String, players: Array) -> void:
 
     current_players.clear()
     current_players = players
-    emit_signal("room_player_list_updated", room_id, players)
+    room_player_list_updated.emit(room_id, players)
 
 @rpc("any_peer")
 func on_game_state_changed(new_state: int):
     current_game_state = new_state
-    emit_signal("game_state_changed", new_state)
+    game_state_changed.emit(new_state)
     print("Game state changed to: ", new_state)
