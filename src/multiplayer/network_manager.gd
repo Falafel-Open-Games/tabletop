@@ -44,7 +44,7 @@ func _ready():
 
 # Debugging purposes
 func _input(event: InputEvent) -> void:
-    if Input.is_action_pressed("ui_text_backspace"):
+    if Input.is_action_pressed("debug_disconnect"):
         NetworkManager.debug_simulate_disconnect()
 
 func connect_to_server(address: String = Constants.DEFAULT_SERVER_URL) -> bool:
