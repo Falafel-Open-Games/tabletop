@@ -127,7 +127,6 @@ func _on_chat_pressed():
 # ─────────────────────────────────────────────────────────────────
 
 func _on_connected_to_server():
-    print("Connected to server!")
     status_label.text = "Connected to server"
     connect_button.text = "DISCONNECT"
 
@@ -141,7 +140,6 @@ func _on_connected_to_server():
         _on_join_pressed()
 
 func _on_disconnected_from_server():
-    print("Disconnected from server")
     status_label.text = "Disconnected from server"
     connect_button.text = "CONNECT"
     join_button.text = "JOIN ROOM"
