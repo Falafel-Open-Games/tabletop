@@ -5,19 +5,21 @@ const MESSAGE_TEMPLATE = "\n%s [b]<%s>[/b]  %s"
 var server_url : String = Constants.DEFAULT_SERVER_URL
 
 var rooms: Dictionary = {}  # room_id -> RoomInfo
-var peer_to_room: Dictionary = {}  # peer_id -> room_id
-var disconnected_players = {}  # local_player_id : {peer_id, room_id, timeout_time}
-var server_peer: WebSocketMultiplayerPeer
+
 var network_manager_node: Node
+
+# Maps persistent User IDs to temporary Peer IDs: { "User_UUID_A": ["id": "User_UUID_A", "peer_id": 105, "room_id: "1234"] }
+var active_sessions: Dictionary = {}
+
+# Buffers messages for offline users: { "User_UUID_A": [ { "method": "...", "args": [...] } ] }
+var pending_messages: Dictionary = {}
 
 func _ready():
     if not (OS.has_feature("dedicated_server") or Arguments.get_argument("server")):
         printerr("Server must be run with --headless or as dedicated server export!")
         get_tree().quit()
 
-    server_peer = WebSocketMultiplayerPeer.new()
-    server_peer.supported_protocols = ["godot-game"]
-
+    var server_peer = WebSocketMultiplayerPeer.new()
     var parsed := Utils.get_ip_and_port(server_url)
     var port := Constants.DEFAULT_PORT
     if parsed.has("port") and parsed["port"] > 0:
@@ -47,15 +49,50 @@ func _on_peer_connected(peer_id: int):
 func _on_peer_disconnected(peer_id: int):
     print("Player disconnected: ", peer_id)
 
-    # Remove player from their room
-    if peer_to_room.has(peer_id):
-        var room_id = peer_to_room[peer_id]
+    var player = find_session_by_peer_id(peer_id)
+    var room_id = player["room_id"]
+    if room_id != "":
         _remove_player_from_room(peer_id, room_id)
+
+    # Reverse lookup to remove user from active_sessions
+    for user_id in active_sessions:
+        if active_sessions[user_id]["peer_id"] == peer_id:
+            active_sessions.erase(user_id)
+            break
 
 # ─────────────────────────────────────────────────────────────────
 # CLIENT-SIDE METHODS
 # These RPCs are sent from client
 # ─────────────────────────────────────────────────────────────────
+
+@rpc("any_peer", "call_remote", "reliable")
+func authenticate_user(claimed_user_id: String, token: String):
+    print("authenticate_user %s" % claimed_user_id)
+    var sender_id = multiplayer.get_remote_sender_id()
+
+    # 1. Validate Token (Pseudo-code)
+    if not _validate_token(claimed_user_id, token):
+        multiplayer.multiplayer_peer.disconnect_peer(sender_id)
+        return
+
+    # 2. Handle Duplicate Logins (Kick old session if exists)
+    if active_sessions.has(claimed_user_id):
+        var old_peer = active_sessions[claimed_user_id]["peer_id"]
+        if old_peer != sender_id and old_peer in multiplayer.get_peers():
+            multiplayer.multiplayer_peer.disconnect_peer(old_peer)
+
+    # 3. Register Session
+    active_sessions[claimed_user_id] = {}
+    active_sessions[claimed_user_id]["id"] = claimed_user_id
+    active_sessions[claimed_user_id]["peer_id"] = sender_id
+    active_sessions[claimed_user_id]["room_id"] = ""
+    print("User authenticated: ", claimed_user_id, " on Peer ", sender_id)
+
+    # 4. Confirm Success to Client (Triggers Client-side flush)
+    network_manager_node.rpc_id(sender_id, "receive_auth_success")
+
+    # 5. Flush Server-side Buffer (Send missed server msgs to Client)
+    _flush_server_buffer(claimed_user_id, sender_id)
 
 @rpc("any_peer", "call_local")
 func rpc_create_room(room_id: String, max_players: int = Constants.MAX_PLAYERS) -> void:
@@ -66,14 +103,15 @@ func rpc_create_room(room_id: String, max_players: int = Constants.MAX_PLAYERS) 
     var peer_id = multiplayer.get_remote_sender_id()
 
     # Prevent creating multiple rooms
-    if peer_to_room.has(peer_id):
+    var player = find_session_by_peer_id(peer_id)
+    if player["room_id"] != "":
         network_manager_node.rpc_id(peer_id, "on_room_creation_failed", "Already in a room")
         return
 
     # Create room
     var room = Constants.RoomInfo.new(room_id, peer_id, max_players)
     rooms[room_id] = room
-    peer_to_room[peer_id] = room_id
+    active_sessions[player["id"]]["room_id"] = room_id
 
     # Notify creator
     network_manager_node.rpc_id(peer_id, "on_room_created", room_id)
@@ -91,7 +129,8 @@ func rpc_join_room(room_id: String) -> bool:
     var room = rooms[room_id]
 
     # Check if already in room
-    if peer_to_room.has(peer_id):
+    var player = find_session_by_peer_id(peer_id)
+    if player["room_id"] != "":
         network_manager_node.rpc_id(peer_id, "on_join_failed", "Already in a room")
         return false
 
@@ -107,13 +146,13 @@ func rpc_join_room(room_id: String) -> bool:
 
     # Add player to room
     room.player_ids.append(peer_id)
-    peer_to_room[peer_id] = room_id
+    active_sessions[player["id"]]["room_id"] = room_id
 
     print("Player ", peer_id, " joined room ", room_id)
 
     # Notify all players in the room
     for player_id in room.player_ids:
-        network_manager_node.rpc_id(player_id, "on_player_joined", peer_id, _get_player_info(peer_id))
+        network_manager_node.rpc_id(player_id, "on_player_joined", peer_id, find_session_by_peer_id(peer_id))
 
     # Send room state to new player
     network_manager_node.rpc_id(peer_id, "on_room_joined", room_id, _serialize_room(room))
@@ -125,10 +164,11 @@ func rpc_join_room(room_id: String) -> bool:
 func rpc_leave_room():
     var peer_id = multiplayer.get_remote_sender_id()
 
-    if not peer_to_room.has(peer_id):
+    var player = find_session_by_peer_id(peer_id)
+    if player["room_id"] == "":
         return
 
-    var room_id = peer_to_room[peer_id]
+    var room_id = player["room_id"]
     _remove_player_from_room(peer_id, room_id)
     network_manager_node.rpc_id(peer_id, "on_room_left")
 
@@ -137,10 +177,11 @@ func rpc_go_to_lobby() -> void:
     var peer_id = multiplayer.get_remote_sender_id()
 
     # Security check: Ensure the caller is actually the host of their room
-    if not peer_to_room.has(peer_id):
+    var player = find_session_by_peer_id(peer_id)
+    if player["room_id"] == "":
         return
 
-    var room_id = peer_to_room[peer_id]
+    var room_id = player["room_id"]
     var room = rooms[room_id]
 
     if room.host_id != peer_id:
@@ -168,10 +209,11 @@ func rpc_go_to_lobby() -> void:
 func rpc_start_game() -> void:
     var peer_id = multiplayer.get_remote_sender_id()
 
-    if not peer_to_room.has(peer_id):
+    var player = find_session_by_peer_id(peer_id)
+    if player["room_id"] == "":
         return
 
-    var room_id = peer_to_room[peer_id]
+    var room_id = player["room_id"]
     var room = rooms[room_id]
 
     if room.host_id != peer_id:
@@ -198,10 +240,11 @@ func rpc_start_game() -> void:
 func rpc_finish_game() -> void:
     var peer_id = multiplayer.get_remote_sender_id()
 
-    if not peer_to_room.has(peer_id):
+    var player = find_session_by_peer_id(peer_id)
+    if player["room_id"] == "":
         return
 
-    var room_id = peer_to_room[peer_id]
+    var room_id = player["room_id"]
     var room = rooms[room_id]
 
     if room.host_id != peer_id:
@@ -230,10 +273,11 @@ func rpc_send_chat_message(message: String):
 
     var peer_id = multiplayer.get_remote_sender_id()
 
-    if not peer_to_room.has(peer_id):
+    var player = find_session_by_peer_id(peer_id)
+    if player["room_id"] == "":
         return
 
-    var room_id = peer_to_room[peer_id]
+    var room_id = player["room_id"]
     var final_msg = MESSAGE_TEMPLATE % [Utils.get_current_time(), peer_id, message]
     _broadcast_to_room(room_id, "on_broadcasted_message", final_msg)
 
@@ -252,7 +296,6 @@ func _remove_player_from_room(peer_id: int, room_id: String):
         return
 
     room.player_ids.erase(peer_id)
-    peer_to_room.erase(peer_id)
 
     # Notify remaining players
     for player_id in room.player_ids:
@@ -281,7 +324,7 @@ func _notify_room_player_list(room_id: String) -> void:
 
     var players: Array = []
     for peer_id in room.player_ids:
-        players.append(_get_player_info(peer_id))  # { id, name, ... }
+        players.append(find_session_by_peer_id(peer_id))
 
     for peer_id in room.player_ids:
         network_manager_node.rpc_id(peer_id, "on_room_player_list_updated", room_id, players)
@@ -300,11 +343,44 @@ func _broadcast_to_room(room_id: String, rpc_method: String, message: String):
 # HELPER METHODS
 # ─────────────────────────────────────────────────────────────────
 
-func _get_player_info(peer_id: int) -> Dictionary:
-    return {
-        "id": peer_id,
-        "name": "Player_" + str(peer_id)
-    }
+func send_safe_rpc(target_user_id: String, method: String, args: Array):
+    # Check if user is online and the peer connection is valid
+    if active_sessions.has(target_user_id):
+        var peer_id = active_sessions[target_user_id]
+        if peer_id in multiplayer.get_peers():
+            rpc_id(peer_id, method, args)
+            return
+
+    # If offline, buffer it
+    if not pending_messages.has(target_user_id):
+        pending_messages[target_user_id] = []
+
+    pending_messages[target_user_id].append({ "method": method, "args": args })
+
+func _validate_token(user, token) -> bool:
+    print("_validate_token %s %s" % [user, token])
+    return true # Implement your real auth logic here
+
+func _flush_server_buffer(user_id: String, peer_id: int):
+    if pending_messages.has(user_id):
+        for msg in pending_messages[user_id]:
+            # Use call_deferred to ensure client is ready
+            call_deferred("rpc_id", peer_id, msg["method"], msg["args"])
+        pending_messages.erase(user_id)
+
+func find_session_by_peer_id(target_peer_id: int) -> Dictionary:
+    for user_id in active_sessions:
+        var session: Dictionary = active_sessions[user_id]
+        if session.get("peer_id") == target_peer_id:
+            return session
+    return {}
+
+func find_user_id_by_peer_id(target_peer_id: int) -> String:
+    for user_id in active_sessions:
+        var session: Dictionary = active_sessions[user_id]
+        if session.get("peer_id") == target_peer_id:
+            return user_id
+    return ""
 
 func _serialize_room(room: Constants.RoomInfo) -> Dictionary:
     return {

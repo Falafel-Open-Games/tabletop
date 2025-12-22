@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://svettry7k5v0" path="res://src/ui/lobby_ui.gd" id="1_o1atq"]
 
-[node name="Lobby" type="Control" node_paths=PackedStringArray("connect_button", "create_button", "join_button", "room_code_input", "player_list", "start_button", "chat_button", "status_label")]
+[node name="Lobby" type="Control" node_paths=PackedStringArray("connect_button", "create_button", "join_button", "room_code_input", "player_list", "start_button", "chat_button", "status_label", "room_id_label", "user_id_label", "user_id_input")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -10,55 +10,94 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_o1atq")
-connect_button = NodePath("VBoxContainer/ConnectButton")
-create_button = NodePath("VBoxContainer/CreateButton")
-join_button = NodePath("VBoxContainer/JoinButton")
-room_code_input = NodePath("VBoxContainer/RoomCodeInput")
-player_list = NodePath("VBoxContainer/PlayerList")
-start_button = NodePath("VBoxContainer/StartButton")
-chat_button = NodePath("VBoxContainer/ChatButton")
-status_label = NodePath("StatusLabel")
+connect_button = NodePath("MarginContainer/VBox/Elements/Buttons/ConnectButton")
+create_button = NodePath("MarginContainer/VBox/Elements/Buttons/CreateButton")
+join_button = NodePath("MarginContainer/VBox/Elements/Buttons/JoinButton")
+room_code_input = NodePath("MarginContainer/VBox/Elements/Buttons/RoomCodeInput")
+player_list = NodePath("MarginContainer/VBox/Elements/Info/PlayerList")
+start_button = NodePath("MarginContainer/VBox/Elements/Buttons/StartButton")
+chat_button = NodePath("MarginContainer/VBox/Elements/Buttons/ChatButton")
+status_label = NodePath("MarginContainer/VBox/StatusLabel")
+room_id_label = NodePath("MarginContainer/VBox/Elements/Info/RoomIdLabel")
+user_id_label = NodePath("MarginContainer/VBox/Elements/Info/UserIdLabel")
+user_id_input = NodePath("MarginContainer/VBox/Elements/Buttons/UserIDInput")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="."]
-layout_mode = 0
-offset_right = 40.0
-offset_bottom = 40.0
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_bottom = 24
 
-[node name="ConnectButton" type="Button" parent="VBoxContainer"]
+[node name="VBox" type="VBoxContainer" parent="MarginContainer"]
 layout_mode = 2
-text = "CONNECT"
 
-[node name="CreateButton" type="Button" parent="VBoxContainer"]
-layout_mode = 2
-text = "CREATE ROOM"
-
-[node name="RoomCodeInput" type="LineEdit" parent="VBoxContainer"]
-layout_mode = 2
-
-[node name="JoinButton" type="Button" parent="VBoxContainer"]
-layout_mode = 2
-text = "JOIN"
-
-[node name="PlayerList" type="ItemList" parent="VBoxContainer"]
-custom_minimum_size = Vector2(200, 150)
+[node name="Elements" type="HBoxContainer" parent="MarginContainer/VBox"]
+custom_minimum_size = Vector2(250, 0)
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="StartButton" type="Button" parent="VBoxContainer"]
+[node name="Buttons" type="VBoxContainer" parent="MarginContainer/VBox/Elements"]
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+
+[node name="ConnectButton" type="Button" parent="MarginContainer/VBox/Elements/Buttons"]
+layout_mode = 2
+text = "CONNECT"
+
+[node name="CreateButton" type="Button" parent="MarginContainer/VBox/Elements/Buttons"]
+layout_mode = 2
+text = "CREATE ROOM"
+
+[node name="JoinButton" type="Button" parent="MarginContainer/VBox/Elements/Buttons"]
+layout_mode = 2
+text = "JOIN"
+
+[node name="StartButton" type="Button" parent="MarginContainer/VBox/Elements/Buttons"]
 layout_mode = 2
 text = "START MATCH"
 
-[node name="ChatButton" type="Button" parent="VBoxContainer"]
+[node name="ChatButton" type="Button" parent="MarginContainer/VBox/Elements/Buttons"]
 layout_mode = 2
 text = "CHAT"
 
-[node name="StatusLabel" type="Label" parent="."]
-layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -54.0
-offset_bottom = 23.0
-grow_horizontal = 0
-text = "Status:"
+[node name="RoomCodeInput" type="LineEdit" parent="MarginContainer/VBox/Elements/Buttons"]
+layout_mode = 2
+placeholder_text = "room_id"
+
+[node name="UserIDInput" type="LineEdit" parent="MarginContainer/VBox/Elements/Buttons"]
+layout_mode = 2
+placeholder_text = "user_id"
+
+[node name="Info" type="VBoxContainer" parent="MarginContainer/VBox/Elements"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="UserIdLabel" type="Label" parent="MarginContainer/VBox/Elements/Info"]
+layout_mode = 2
+size_flags_horizontal = 8
+text = "user_id"
 horizontal_alignment = 2
+
+[node name="RoomIdLabel" type="Label" parent="MarginContainer/VBox/Elements/Info"]
+layout_mode = 2
+size_flags_horizontal = 8
+text = "room_id"
+horizontal_alignment = 2
+
+[node name="PlayerList" type="ItemList" parent="MarginContainer/VBox/Elements/Info"]
+custom_minimum_size = Vector2(200, 150)
+layout_mode = 2
+size_flags_horizontal = 8
+size_flags_vertical = 3
+
+[node name="StatusLabel" type="Label" parent="MarginContainer/VBox"]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+size_flags_vertical = 8
+text = "Status:"
