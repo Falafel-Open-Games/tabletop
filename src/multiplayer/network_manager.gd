@@ -41,6 +41,8 @@ var server_address: String
 var server_ip: String
 var server_port: int
 
+var connection_check_timer: Timer
+
 # Queue for outgoing messages: [ { "method": "chat", "args": ["hi"] } ]
 var request_queue: Array = []
 
@@ -50,6 +52,13 @@ func _ready():
     multiplayer.connected_to_server.connect(_on_connected)
     multiplayer.server_disconnected.connect(_on_disconnected)
     multiplayer.connection_failed.connect(_on_connection_failed)
+
+    # Create and configure the timer
+    connection_check_timer = Timer.new()
+    connection_check_timer.wait_time = 1.0
+    connection_check_timer.one_shot = false
+    connection_check_timer.timeout.connect(_on_connection_check_timeout)
+    add_child(connection_check_timer)
 
 # Debugging purposes
 func _input(event: InputEvent) -> void:
@@ -78,6 +87,7 @@ func disconnect_from_server():
     if not multiplayer.multiplayer_peer:
         return
 
+    connection_check_timer.stop()
     _handle_server_disconnected()
 
 func reconnect_to_server():
@@ -142,6 +152,11 @@ func _handle_server_disconnected():
 func _on_connection_failed():
     print("Connection failed - check server address")
     is_player_connected = false
+
+func _on_connection_check_timeout():
+    if not is_connected_to_server():
+        print("⚠️ Connection lost! Detected by timer.")
+        reconnect_to_server()
 
 # ─────────────────────────────────────────────────────────────────
 # CLIENT-SIDE METHODS
@@ -269,6 +284,7 @@ func receive_auth_success():
     is_authenticated = true
     is_player_connected = true
     local_player_id = multiplayer.get_unique_id()
+    connection_check_timer.start()
     user_authenticated.emit()
 
     # Auto join room
@@ -360,6 +376,13 @@ func on_game_state_changed(new_state: int):
 # ─────────────────────────────────────────────────────────────────
 # HELPER METHODS
 # ─────────────────────────────────────────────────────────────────
+
+func is_connected_to_server() -> bool:
+    # Check if peer exists AND if connection status is CONNECTED
+    return (
+        multiplayer.multiplayer_peer != null
+        and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED
+    )
 
 func send_to_server(method: String, args: Array):
     if is_authenticated and multiplayer.peer_connected:
