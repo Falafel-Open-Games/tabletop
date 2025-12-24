@@ -271,6 +271,10 @@ func receive_auth_success():
     local_player_id = multiplayer.get_unique_id()
     user_authenticated.emit()
 
+    # Auto join room
+    if not current_room_id.is_empty():
+        join_room(current_room_id)
+
 @rpc("any_peer")
 func on_room_created(room_id: String):
     current_room_id = room_id
