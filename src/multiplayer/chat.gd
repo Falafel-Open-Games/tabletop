@@ -24,6 +24,10 @@ func _input(event: InputEvent) -> void:
 func _on_user_authenticated():
     chat_messages.text += "\nConnected"
 
+    # In case of reconnection
+    if NetworkManager.current_room_id != "":
+        NetworkManager.join_room(NetworkManager.current_room_id)
+
 func _on_disconnected_from_server():
     chat_messages.text += "\nLost connection. Reconnecting..."
 
