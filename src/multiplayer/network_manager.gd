@@ -133,7 +133,7 @@ func _handle_server_disconnected():
     is_reconnecting = false
     is_player_connected = false
     is_host = false
-    current_room_id = ""
+    # current_room_id = ""
     current_players.clear()
     multiplayer.multiplayer_peer.close()
     multiplayer.multiplayer_peer = null
@@ -370,8 +370,16 @@ func send_to_server(method: String, args: Array):
 func _flush_client_queue():
     while request_queue.size() > 0:
         var req = request_queue.pop_front()
-        # Retry sending (now that is_authenticated is true)
-        rpc_id(1, req["method"], req["args"])
+
+        var peer_id = 1
+        var method_name = req["method"]
+        var method_args = req["args"]
+
+        var full_args = [peer_id, method_name]
+        full_args.append_array(method_args)
+
+        callv("rpc_id", full_args)
+
 
 func debug_simulate_disconnect():
     print("🔌 Simulating network disconnect...")
