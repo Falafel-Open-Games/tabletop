@@ -39,31 +39,20 @@ func _ready():
 
     _reset_ui_state()
 
+    # Set room id from args
     var room_id_arg = Arguments.get_argument(&"roomid")
 
     if room_id_arg.is_ok():
         room_id = room_id_arg.value()
         room_code_input.text = room_id
 
+    # Set view based on current state
     if NetworkManager.is_player_connected:
-        if NetworkManager.current_room_id.is_empty() and not room_id.is_empty():
-            # Joining an existent room
-            _on_join_pressed()
+        if NetworkManager.current_room_id.is_empty():
+            _set_view_create_or_join_room()
         else:
-            # Back from chat to lobby while in a room
-            chat_button.visible = true
-            player_list.visible = true
-            status_label.text = "Joined room: " + NetworkManager.current_room_id
-            join_button.text = "LEAVE ROOM"
-            connect_button.text = "DISCONNECT"
-
-            if NetworkManager.is_host:
-                start_button.visible = true
-
-            _update_players_list_obj()
+            _set_view_lobby()
     else:
-        # Connecting to server
-        # _on_connect_pressed()
         _set_view_connect()
 
 # ─────────────────────────────────────────────────────────────────
@@ -155,14 +144,18 @@ func _set_view_create_or_join_room():
 
 func _set_view_lobby():
     _reset_ui_state()
+    connect_button.visible = true
+    connect_button.text = "DISCONNECT"
     chat_button.visible = true
     player_list.visible = true
     start_button.visible = NetworkManager.is_host
     room_id_label.visible = true
     room_id_label.text = "Room: %s" % room_id
     user_id_label.visible = true
+    user_id_label.text = "User: %s" % NetworkManager.my_user_id
     join_button.text = "LEAVE ROOM"
     player_list.clear()
+    _update_players_list_obj()
 
 # ─────────────────────────────────────────────────────────────────
 # NETWORK MANAGER callbasks
@@ -177,11 +170,9 @@ func _on_user_authenticated():
 
 func _on_disconnected_from_server():
     status_label.text = "Disconnected from server"
-    connect_button.text = "CONNECT"
-    join_button.text = "JOIN ROOM"
     _reset_ui_state()
-    join_button.visible = false
-    room_code_input.visible = true
+    connect_button.text = "CONNECT"
+    user_id_input.visible = true
 
 func _on_room_created(new_room_id: String):
     _set_view_lobby()
