@@ -11,6 +11,8 @@ func _ready() -> void:
     chat_messages.text = ""
     button_send.pressed.connect(_on_button_send)
     button_exit.pressed.connect(_on_button_exit)
+    NetworkManager.user_authenticated.connect(_on_user_authenticated)
+    NetworkManager.disconnected_from_server.connect(_on_disconnected_from_server)
     NetworkManager.message_received.connect(_on_message_received)
     NetworkManager.room_player_list_updated.connect(_on_room_player_list_updated)
     _on_room_player_list_updated(NetworkManager.current_room_id, NetworkManager.current_players)
@@ -18,6 +20,12 @@ func _ready() -> void:
 func _input(event: InputEvent) -> void:
     if Input.is_action_pressed("ui_text_submit") and chat_messages.text != "":
         _on_button_send()
+
+func _on_user_authenticated():
+    chat_messages.text += "\nConnected"
+
+func _on_disconnected_from_server():
+    chat_messages.text += "\nLost connection. Reconnecting..."
 
 func _on_button_send():
     if line_message.text == "":
@@ -37,9 +45,9 @@ func _on_room_player_list_updated(_room_id: String, players: Array):
     print("_on_room_player_list_updated: %s" % players.size())
     connected_players.text = "PLAYERS:"
     for p in players:
-        var entry: String = p.name if p.has("name") else "Player_%s" % p.id
-        if int(p.id) == multiplayer.get_unique_id():
-            entry += " (You)"
+        var entry: String = p["id"] if p.has("id") else "Player_%s" % p["peer_id"]
+        if int(p["peer_id"]) == multiplayer.get_unique_id():
+            entry = "YOU"
         connected_players.text += "\n%s" % entry
 
 func format_player_message(message: String) -> String:
