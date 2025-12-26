@@ -50,6 +50,9 @@ func _on_peer_disconnected(peer_id: int):
     print("Player disconnected: ", peer_id)
 
     var player = _find_player_by_peer_id(peer_id)
+    if player == {}:
+        return
+
     var room_id = player["room_id"]
     if room_id != "":
         _remove_player_from_room(peer_id, room_id)
@@ -75,11 +78,10 @@ func authenticate_user(claimed_user_id: String, token: String):
         multiplayer.multiplayer_peer.disconnect_peer(sender_id)
         return
 
-    # 2. Handle Duplicate Logins (Kick old session if exists)
+    # 2. Handle Duplicate Logins (block new connections)
     if active_players.has(claimed_user_id):
-        var old_peer = active_players[claimed_user_id]["peer_id"]
-        if old_peer != sender_id and old_peer in multiplayer.get_peers():
-            multiplayer.multiplayer_peer.disconnect_peer(old_peer)
+        network_manager_node.rpc_id(sender_id, "receive_auth_failed", "User already connected in another session.")
+        return
 
     # 3. Register Session
     active_players[claimed_user_id] = {}
