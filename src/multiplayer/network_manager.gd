@@ -9,6 +9,7 @@ extends Node
 # signal connected_to_server
 signal disconnected_from_server
 signal user_authenticated
+signal user_authentication_failed(reason: String)
 signal room_created(room_id: String)
 signal room_joined(room_info: Dictionary)
 signal room_left
@@ -290,6 +291,11 @@ func receive_auth_success():
     # Auto join room
     if not current_room_id.is_empty():
         join_room(current_room_id)
+
+@rpc("authority", "call_remote", "reliable")
+func receive_auth_failed(reason: String):
+    print("Authentication failed: %s" % reason)
+    user_authentication_failed.emit(reason)
 
 @rpc("any_peer")
 func on_room_created(room_id: String):

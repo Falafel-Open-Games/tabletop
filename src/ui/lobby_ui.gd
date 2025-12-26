@@ -17,6 +17,7 @@ var room_id: String
 func _ready():
     # Connect network signals
     NetworkManager.user_authenticated.connect(_on_user_authenticated)
+    NetworkManager.user_authentication_failed.connect(_on_user_authentication_failed)
     NetworkManager.disconnected_from_server.connect(_on_disconnected_from_server)
     NetworkManager.room_created.connect(_on_room_created)
     NetworkManager.room_joined.connect(_on_room_joined)
@@ -167,6 +168,10 @@ func _on_user_authenticated():
     # Auto join room
     if room_id != "":
         _on_join_pressed()
+
+func _on_user_authentication_failed(reason: String):
+    _set_view_connect()
+    status_label.text = "Auth failed: %s" % reason
 
 func _on_disconnected_from_server():
     status_label.text = "Disconnected from server"
