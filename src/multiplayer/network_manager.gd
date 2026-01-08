@@ -28,7 +28,6 @@ signal turn_changed(current_player_id: int)
 
 var current_room_id: String = ""
 var is_host: bool = false
-var local_player_id: int = -1
 var room_host_id: int
 var current_players: Array = []  # list of dictionaries { id, name, ... }
 var current_game_state: int = Constants.GameState.WAITING
@@ -39,9 +38,6 @@ var is_reconnecting: bool = false
 var is_player_connected: bool = false
 
 var server_address: String
-var server_ip: String
-var server_port: int
-
 var connection_check_timer: Timer
 
 # Queue for outgoing messages: [ { "method": "chat", "args": ["hi"] } ]
@@ -64,7 +60,7 @@ func _ready():
 # Debugging purposes
 func _input(event: InputEvent) -> void:
     if Input.is_action_pressed("debug_disconnect"):
-        NetworkManager.debug_simulate_disconnect()
+        NetworkManager._debug_simulate_disconnect()
 
 func connect_to_server(address: String = Constants.DEFAULT_SERVER_URL) -> bool:
     var peer = WebSocketMultiplayerPeer.new()
@@ -72,9 +68,6 @@ func connect_to_server(address: String = Constants.DEFAULT_SERVER_URL) -> bool:
     print(address)
     # Store server details in case of reconnection
     server_address = address
-    var full_address = Utils.get_ip_and_port(server_address)
-    server_ip = full_address["ip"]
-    server_port = full_address["port"]
 
     var error = peer.create_client(address)
     if error != OK:
@@ -91,7 +84,7 @@ func disconnect_from_server():
     connection_check_timer.stop()
     _handle_server_disconnected()
 
-func reconnect_to_server():
+func _reconnect_to_server():
     if is_reconnecting:
         return  # Already trying to reconnect
 
@@ -157,7 +150,7 @@ func _on_connection_failed():
 func _on_connection_check_timeout():
     if not is_connected_to_server():
         print("⚠️ Connection lost! Detected by timer.")
-        reconnect_to_server()
+        _reconnect_to_server()
 
 # ─────────────────────────────────────────────────────────────────
 # CLIENT-SIDE METHODS
@@ -172,38 +165,38 @@ func create_room(room_id: String, max_players: int = Constants.MAX_PLAYERS) -> v
         printerr("Not connected to server")
         return
 
-    send_to_server("rpc_create_room", [room_id, max_players])
+    _send_to_server("rpc_create_room", [room_id, max_players])
 
 func join_room(room_id: String):
     if not multiplayer.multiplayer_peer:
         printerr("Not connected to server")
         return
 
-    send_to_server("rpc_join_room", [room_id])
+    _send_to_server("rpc_join_room", [room_id])
 
 func leave_room():
     if not multiplayer.multiplayer_peer or current_room_id.is_empty():
         return
 
-    send_to_server("rpc_leave_room", [])
+    _send_to_server("rpc_leave_room", [])
     current_room_id = ""
     is_host = false
 
 func request_return_lobby():
     if is_host:
-        send_to_server("rpc_go_to_lobby", [])
+        _send_to_server("rpc_go_to_lobby", [])
 
 func request_game_start():
     if is_host:
-        send_to_server("rpc_start_game", [])
+        _send_to_server("rpc_start_game", [])
 
 func request_game_finish():
     if is_host:
-        send_to_server("rpc_finish_game", [])
+        _send_to_server("rpc_finish_game", [])
 
 func send_chat_message(msg: String):
     print(msg)
-    send_to_server("rpc_send_chat_message", [msg])
+    _send_to_server("rpc_send_chat_message", [msg])
 
 # ─────────────────────────────────────────────────────────────────
 # RPC STUBS - These must exist on client, even if empty
@@ -284,7 +277,6 @@ func receive_auth_success():
     print("Authentication successful. Sending queued messages...")
     is_authenticated = true
     is_player_connected = true
-    local_player_id = multiplayer.get_unique_id()
     connection_check_timer.start()
     user_authenticated.emit()
 
@@ -390,14 +382,14 @@ func is_connected_to_server() -> bool:
         and multiplayer.multiplayer_peer.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED
     )
 
-func send_to_server(method: String, args: Array):
+func _send_to_server(method: String, args: Array):
     if is_authenticated and multiplayer.peer_connected:
         callv("rpc_id", [1, method] + args)
         return
 
     print("Not connected. Attempting to reconnect before sending: ", method)
     request_queue.append({ "method": method, "args": args })
-    reconnect_to_server()
+    _reconnect_to_server()
     return
 
 func _flush_client_queue():
@@ -413,8 +405,7 @@ func _flush_client_queue():
 
         callv("rpc_id", full_args)
 
-
-func debug_simulate_disconnect():
+func _debug_simulate_disconnect():
     print("🔌 Simulating network disconnect...")
     if multiplayer.multiplayer_peer:
         multiplayer.multiplayer_peer.close()
